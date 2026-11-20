@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'state/app_state.dart';
 import 'ui/bots_screen.dart';
 import 'ui/login_screen.dart';
+import 'ui/splash_screen.dart';
 import 'ui/theme.dart';
 
 void main() {
@@ -52,9 +53,7 @@ class _HobsAppState extends State<HobsApp> with WidgetsBindingObserver {
       theme: HobsTheme.lightTheme(),
       darkTheme: HobsTheme.darkTheme(),
       home: switch (phase) {
-        AuthPhase.loading => const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        AuthPhase.loading => const SplashScreen(),
         AuthPhase.signedOut => const LoginScreen(),
         AuthPhase.signedIn => const BotsScreen(),
       },
