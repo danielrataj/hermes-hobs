@@ -39,6 +39,15 @@ class AppState extends ChangeNotifier {
   String serverUrl = CredentialsStore.defaultServer;
   String username = '';
 
+  /// Remembered password (secure storage); null when not kept.
+  String? _password;
+
+  /// Why the user landed on the login screen without asking to (e.g. the
+  /// remembered password was rejected). Shown by the login form.
+  String? authError;
+
+  String? get savedPassword => _password;
+
   HermesHttp? _http;
   HermesRpc? _rpc;
   StreamSubscription<ConnectionStatus>? _statusSub;
@@ -65,9 +74,11 @@ class AppState extends ChangeNotifier {
   Future<void> init() async {
     serverUrl = await _store.serverUrl();
     username = await _store.username();
+    _password = await _store.password();
     await _loadLocal();
     final cookies = await _store.cookies();
     if (cookies.isEmpty) {
+      if (await _store.autoLogin() && await _silentLogin()) return;
       phase = AuthPhase.signedOut;
       notifyListeners();
       return;
@@ -79,6 +90,7 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       if (e is HermesHttpException && e.isUnauthorized) {
         await _teardown(clearCookies: true);
+        if (await _silentLogin()) return;
         phase = AuthPhase.signedOut;
       } else {
         // Offline / server down: stay signed in, let the user retry.
@@ -86,6 +98,30 @@ class AppState extends ChangeNotifier {
         botsError = describeError(e);
       }
       notifyListeners();
+    }
+  }
+
+  /// Signs in with the remembered password, if any. Returns true when signed
+  /// in; otherwise leaves the reason in [authError]. A rejected password is
+  /// forgotten so it is not retried forever.
+  Future<bool> _silentLogin() async {
+    final password = _password;
+    if (password == null || username.isEmpty) return false;
+    try {
+      await _passwordLogin(serverUrl, username, password);
+      authError = null;
+      await _loadLocal();
+      _enterSignedIn();
+      return true;
+    } catch (e) {
+      if (e is HermesHttpException && e.isUnauthorized) {
+        _password = null;
+        await _store.savePassword(null);
+        authError = 'Uložené heslo už neplatí, přihlas se znovu.';
+      } else {
+        authError = describeError(e);
+      }
+      return false;
     }
   }
 
@@ -118,7 +154,27 @@ class AppState extends ChangeNotifier {
     required String serverUrl,
     required String username,
     required String password,
+    bool rememberPassword = true,
   }) async {
+    await _passwordLogin(serverUrl, username, password);
+    this.serverUrl = serverUrl;
+    this.username = username;
+    _password = rememberPassword ? password : null;
+    authError = null;
+    await _store.saveLogin(serverUrl: serverUrl, username: username);
+    await _store.savePassword(_password);
+    await _store.setAutoLogin(true);
+    await _loadLocal();
+    _enterSignedIn();
+  }
+
+  /// POSTs the password login on fresh clients; on success the session
+  /// cookies are in the client (and persisted via [_setupClients]).
+  Future<void> _passwordLogin(
+    String serverUrl,
+    String username,
+    String password,
+  ) async {
     await _teardown(clearCookies: true);
     _setupClients(Uri.parse(serverUrl), {});
     try {
@@ -135,11 +191,6 @@ class AppState extends ChangeNotifier {
       await _teardown(clearCookies: true);
       rethrow;
     }
-    this.serverUrl = serverUrl;
-    this.username = username;
-    await _store.saveLogin(serverUrl: serverUrl, username: username);
-    await _loadLocal();
-    _enterSignedIn();
   }
 
   Future<void> logout() async {
@@ -152,15 +203,22 @@ class AppState extends ChangeNotifier {
       }
     }
     await _teardown(clearCookies: true);
+    // Keep the password for the login form, but do not sign back in on our own.
+    await _store.setAutoLogin(false);
+    authError = null;
     phase = AuthPhase.signedOut;
     notifyListeners();
   }
 
   void _onSessionExpired() {
     if (phase != AuthPhase.signedIn) return;
-    _teardown(clearCookies: true).then((_) {
-      phase = AuthPhase.signedOut;
+    // Leave signedIn right away so concurrent 401s do not race us here.
+    phase = AuthPhase.loading;
+    notifyListeners();
+    _teardown(clearCookies: true).then((_) async {
       botsError = null;
+      if (await _silentLogin()) return;
+      phase = AuthPhase.signedOut;
       notifyListeners();
     });
   }

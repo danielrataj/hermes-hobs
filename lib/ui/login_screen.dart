@@ -16,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _user = TextEditingController();
   final _pass = TextEditingController();
   bool _busy = false;
+  bool _remember = true;
   String? _error;
 
   @override
@@ -24,6 +25,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final app = context.read<AppState>();
     _server.text = app.serverUrl;
     _user.text = app.username;
+    _pass.text = app.savedPassword ?? '';
+    _error = app.authError;
   }
 
   @override
@@ -45,6 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
         serverUrl: _server.text.trim(),
         username: _user.text.trim(),
         password: _pass.text,
+        rememberPassword: _remember,
       );
     } catch (e) {
       if (mounted) setState(() => _error = AppState.describeError(e));
@@ -130,6 +134,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       onFieldSubmitted: (_) => _submit(),
                       validator: (v) => (v ?? '').isEmpty ? 'Povinné' : null,
                     ),
+                    const SizedBox(height: 4),
+                    CheckboxListTile(
+                      value: _remember,
+                      onChanged: _busy
+                          ? null
+                          : (v) => setState(() => _remember = v ?? true),
+                      title: const Text('Zapamatovat heslo'),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ),
                     if (_error != null) ...[
                       const SizedBox(height: 16),
                       Text(
@@ -137,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(color: theme.colorScheme.error),
                       ),
                     ],
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                     FilledButton(
                       onPressed: _busy ? null : _submit,
                       child: _busy
