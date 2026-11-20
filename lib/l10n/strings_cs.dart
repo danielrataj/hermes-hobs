@@ -53,9 +53,9 @@ class StringsCs extends Strings {
 
   // --- bot list ------------------------------------------------------------
   @override
-  String get botsTitle => 'Boti';
+  String get botsTitle => 'Hobíci';
   @override
-  String get pickBot => 'Vyber bota vlevo';
+  String get pickBot => 'Vyber Hobíka vlevo';
   @override
   String get filterAll => 'Vše';
   @override
@@ -75,11 +75,11 @@ class StringsCs extends Strings {
   @override
   String get signOut => 'Odhlásit';
   @override
-  String get searchBots => 'Hledat boty';
+  String get searchBots => 'Hledat Hobíky';
   @override
   String get retry => 'Zkusit znovu';
   @override
-  String get noBots => 'Na serveru nejsou žádní boti.';
+  String get noBots => 'Na serveru nejsou žádní Hobíci.';
   @override
   String get noMatches => 'Filtru nic neodpovídá.';
   @override
@@ -116,7 +116,7 @@ class StringsCs extends Strings {
 
   // --- bot profile ---------------------------------------------------------
   @override
-  String get botProfile => 'Profil bota';
+  String get botProfile => 'Profil Hobíka';
   @override
   String editBot(String bot) => 'Upravit profil: $bot';
   @override
@@ -134,7 +134,7 @@ class StringsCs extends Strings {
   @override
   String get botDescriptionLabel => 'Popis';
   @override
-  String get botDescriptionHint => 'S čím má bot pomáhat?';
+  String get botDescriptionHint => 'S čím má Hobík pomáhat?';
   @override
   String get modelSection => 'Model';
   @override
@@ -148,7 +148,7 @@ class StringsCs extends Strings {
   @override
   String get soulSection => 'SOUL.md';
   @override
-  String get soulHint => 'Persona a trvalé pokyny bota';
+  String get soulHint => 'Persona a trvalé pokyny Hobíka';
   @override
   String get setupLoadFailed =>
       'Model a SOUL.md se nepodařilo načíst. Zbytek profilu upravit lze.';
@@ -190,7 +190,7 @@ class StringsCs extends Strings {
   @override
   String get tryAgain => 'Znovu';
   @override
-  String get openingChat => 'Otevírám Bot Chat…';
+  String get openingChat => 'Otevírám chat s Hobíkem…';
   @override
   String workingOn(String? status) =>
       status != null ? 'pracuje · $status' : 'pracuje…';
@@ -215,14 +215,14 @@ class StringsCs extends Strings {
   @override
   String get send => 'Odeslat';
   @override
-  String get modelTooltip => 'Model bota (mění se v profilu)';
+  String get modelTooltip => 'Model Hobíka (mění se v profilu)';
   @override
   String get reasoningLevel => 'Úroveň uvažování';
   @override
   String get reasoning => 'Uvažování';
   @override
   String get approvalModeTooltip =>
-      'Schvalování nebezpečných příkazů (platí pro celého bota)';
+      'Schvalování nebezpečných příkazů (platí pro celého Hobíka)';
   @override
   String approvalModeLabel(String mode) => switch (mode) {
     'manual' => 'Ručně',
@@ -239,7 +239,7 @@ class StringsCs extends Strings {
   };
   @override
   String approvalTitle(String? tool) =>
-      'Bot žádá o schválení${tool != null ? ' ($tool)' : ''}';
+      'Hobík žádá o schválení${tool != null ? ' ($tool)' : ''}';
   @override
   String get allowOnce => 'Povolit jednou';
   @override
@@ -249,7 +249,7 @@ class StringsCs extends Strings {
   @override
   String get deny => 'Zamítnout';
   @override
-  String get botAsks => 'Bot se ptá';
+  String get botAsks => 'Hobík se ptá';
   @override
   String get orOwnAnswer => 'nebo vlastní odpověď';
   @override
@@ -310,7 +310,7 @@ class StringsCs extends Strings {
   @override
   String jobsLoadFailed(Object? e) => 'Úlohy se nepodařilo načíst: $e';
   @override
-  String get noJobs => 'Bot nemá žádné naplánované úlohy.';
+  String get noJobs => 'Hobík nemá žádné naplánované úlohy.';
   @override
   String nextRun(String when) => 'Další běh: $when';
   @override
