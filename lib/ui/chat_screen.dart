@@ -10,6 +10,7 @@ import '../state/chat_controller.dart';
 import 'bot_avatar.dart';
 import 'cron_sheet.dart';
 import 'format.dart';
+import 'pull_up_reload.dart';
 
 class ChatScreen extends StatelessWidget {
   const ChatScreen({super.key, required this.bot, this.embedded = false});
@@ -129,17 +130,6 @@ class _ChatViewState extends State<ChatView> {
             onPressed: () => showCronSheet(context, c.bot),
             icon: const Icon(Icons.event_repeat_outlined),
           ),
-          PopupMenuButton<String>(
-            onSelected: (v) {
-              if (v == 'reload') c.reload();
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 'reload',
-                child: Text('Načíst konverzaci znovu'),
-              ),
-            ],
-          ),
         ],
       ),
       body: Column(
@@ -167,7 +157,10 @@ class _ChatViewState extends State<ChatView> {
           Expanded(
             child: Stack(
               children: [
-                _buildMessages(c, theme),
+                PullUpReload(
+                  onReload: c.reload,
+                  child: _buildMessages(c, theme),
+                ),
                 if (_awayFromBottom)
                   Positioned(
                     bottom: 10,

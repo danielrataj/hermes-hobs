@@ -155,7 +155,6 @@ class _BotListState extends State<_BotList> {
           ),
           PopupMenuButton<String>(
             onSelected: (v) {
-              if (v == 'refresh') app.refreshBots();
               if (v == 'logout') app.logout();
             },
             itemBuilder: (_) => [
@@ -165,7 +164,6 @@ class _BotListState extends State<_BotList> {
                   '${app.username} @ ${Uri.tryParse(app.serverUrl)?.host ?? app.serverUrl}',
                 ),
               ),
-              const PopupMenuItem(value: 'refresh', child: Text('Obnovit')),
               const PopupMenuItem(value: 'logout', child: Text('Odhlásit')),
             ],
           ),
