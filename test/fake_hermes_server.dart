@@ -88,6 +88,7 @@ class FakeHermesServer {
   final List<String> titled = [];
   final List<String> resumed = [];
   final List<Map<String, dynamic>> configSets = [];
+  final List<Map<String, dynamic>> configures = [];
 
   /// Profile-wide `approvals.mode` served by `config.get`.
   String approvalMode = 'manual';
@@ -329,6 +330,35 @@ class FakeHermesServer {
           send({
             'id': id,
             'result': {'ok': true},
+          });
+        case 'profiles.configure':
+          configures.add(params);
+          final row = roster.firstWhere((r) => r['name'] == params['name']);
+          final revisions = Map<String, dynamic>.from(
+            (row['ui_meta_revisions'] ?? const {}) as Map,
+          );
+          final expected = params['ui_meta_expected_revisions'] as Map?;
+          final incoming = params['ui_meta'] as Map;
+          final stale = incoming.keys.any(
+            (k) => expected != null && expected[k] != (revisions[k] ?? 0),
+          );
+          if (!stale) {
+            final meta = Map<String, dynamic>.from(
+              (row['ui_meta'] ?? const {}) as Map,
+            );
+            for (final e in incoming.entries) {
+              meta[e.key as String] = e.value;
+              revisions[e.key as String] = ((revisions[e.key] ?? 0) as int) + 1;
+            }
+            row['ui_meta'] = meta;
+            row['ui_meta_revisions'] = revisions;
+          }
+          send({
+            'id': id,
+            'result': {
+              'ok': !stale,
+              'applied': {'ui_meta': !stale},
+            },
           });
         case 'profiles.list':
           send({

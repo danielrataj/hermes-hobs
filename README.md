@@ -23,11 +23,12 @@ Sign in with the dashboard's username and password (provider `basic`).
 | Bot Chat | Each bot has one forever-chat: the session titled "Bot Chat". The app opens it with `session.resume` (history included). On a bot's first chat it calls `session.create {title:"Bot Chat", hidden, follow_profile_config}` followed by `session.title`. |
 | Conversation | `prompt.submit {session_id,text}` → events `message.start / message.delta / message.interim / tool.* / message.complete` |
 | Control | `session.interrupt`, `config.set {key:"reasoning", scope:"session"}`, `config.get` / `config.set {key:"approvals.mode", profile}` (profile-wide approval mode: manual, smart, off), server requests `approval` (reply with `{choice}`) and `clarify` (reply with `{answers,outcome}`) |
+| Folders | Rename: `profiles.configure {name, ui_meta:{"hermes-bots":{…,sectionName}}, ui_meta_expected_revisions}` for every bot in the folder (the write replaces the whole `hermes-bots` block, so the app sends it back complete). Folder order is local to the device, like on the dashboard. |
 | Scheduled jobs | `cron.manage {action:"list", profile}` (read-only) |
 | Reconnect | auto backoff, then `session.resume` with the stored id |
 
 The SESSIONS tab and group chats from the dashboard are out of scope. Unread
-state and collapsed folders are stored locally on the device.
+state, collapsed folders and folder order are stored locally on the device.
 
 ## Layout
 

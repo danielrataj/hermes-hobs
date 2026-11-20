@@ -61,6 +61,10 @@ class AppState extends ChangeNotifier {
   Timer? _rosterTimer;
 
   List<Bot> bots = [];
+
+  /// Bots the roster hides. They still belong to folders, so a folder rename
+  /// has to reach them too.
+  List<Bot> _hiddenBots = [];
   bool loadingBots = false;
   String? botsError;
   final Map<String, ChatController> _chats = {};
@@ -68,6 +72,10 @@ class AppState extends ChangeNotifier {
   // Local, per-device bookkeeping (like the dashboard's own storage).
   Map<String, int> _seen = {}; // bot name -> last seen activity (ms)
   Set<String> collapsed = {};
+
+  /// Folder keys in the order the user dragged them into. Kept per device,
+  /// like the dashboard keeps its own. Folders missing here go last, by name.
+  List<String> sectionOrder = [];
   BotFilter filter = BotFilter.all;
   String query = '';
   String? openBot;
@@ -249,11 +257,18 @@ class AppState extends ChangeNotifier {
     _http?.close();
     _http = null;
     bots = [];
+    _hiddenBots = [];
   }
 
   // --- roster --------------------------------------------------------------
 
   Future<List<Bot>> _fetchRoster() async {
+    final all = await _fetchAllBots();
+    _hiddenBots = all.where((b) => b.hidden).toList();
+    return all.where((b) => !b.hidden).toList();
+  }
+
+  Future<List<Bot>> _fetchAllBots() async {
     final rpc = _rpc;
     if (rpc != null) {
       try {
@@ -275,7 +290,7 @@ class AppState extends ChangeNotifier {
   static List<Bot> _parseRoster(Object? rows) => (rows as List? ?? const [])
       .whereType<Map>()
       .map((m) => Bot.fromJson(Map<String, dynamic>.from(m)))
-      .where((b) => b.name.isNotEmpty && !b.hidden)
+      .where((b) => b.name.isNotEmpty)
       .toList();
 
   Future<void> refreshBots({bool silent = false}) async {
@@ -367,9 +382,11 @@ class AppState extends ChangeNotifier {
 
   /// Bots grouped into the user's folders (`ui_meta.sectionId/sectionName`),
   /// "Nezařazení" last. Inside a folder: pinned first, then newest activity.
-  List<BotSection> get sections {
+  List<BotSection> get sections => _sections(bots.where(_matchesFilter));
+
+  List<BotSection> _sections(Iterable<Bot> members) {
     final byKey = <String, BotSection>{};
-    for (final b in bots.where(_matchesFilter)) {
+    for (final b in members) {
       final key = b.sectionId != null
           ? 'section:${b.sectionId}'
           : BotSection.unassignedKey;
@@ -392,11 +409,18 @@ class AppState extends ChangeNotifier {
     for (final s in byKey.values) {
       s.bots.sort(byActivity);
     }
+    int rank(BotSection s) {
+      final i = sectionOrder.indexOf(s.key);
+      return i < 0 ? sectionOrder.length : i;
+    }
+
     final named =
         byKey.values.where((s) => s.key != BotSection.unassignedKey).toList()
-          ..sort(
-            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-          );
+          ..sort((a, b) {
+            final byRank = rank(a).compareTo(rank(b));
+            if (byRank != 0) return byRank;
+            return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+          });
     final rest = byKey[BotSection.unassignedKey];
     return [...named, ?rest];
   }
@@ -418,6 +442,59 @@ class AppState extends ChangeNotifier {
     if (!collapsed.remove(key)) collapsed.add(key);
     notifyListeners();
     unawaited(_saveLocal());
+  }
+
+  /// Moves folder [key] in front of folder [before], or to the end of the
+  /// folders when [before] is null. Works on every folder, also the ones the
+  /// current search or filter hides.
+  void moveSection(String key, {String? before}) {
+    if (key == BotSection.unassignedKey || key == before) return;
+    final order = [
+      for (final s in _sections(bots))
+        if (s.key != BotSection.unassignedKey && s.key != key) s.key,
+    ];
+    final at = before == null ? -1 : order.indexOf(before);
+    order.insert(at < 0 ? order.length : at, key);
+    sectionOrder = order;
+    notifyListeners();
+    unawaited(_saveLocal());
+  }
+
+  /// Renames folder [key] the way the dashboard does: the name lives in every
+  /// member bot's profile metadata, so each member gets the new name.
+  /// Throws when the server refuses a write.
+  Future<void> renameSection(String key, String name) async {
+    final title = name.trim();
+    final rpc = _rpc;
+    if (title.isEmpty || rpc == null || key == BotSection.unassignedKey) return;
+    try {
+      for (final b in [...bots, ..._hiddenBots]) {
+        if ('section:${b.sectionId}' != key || b.sectionName == title) continue;
+        if (!await _writeSectionName(rpc, b, title)) {
+          // Someone else edited the bot meanwhile: reread it and retry once.
+          final fresh = (await _fetchAllBots()).where((x) => x.name == b.name);
+          if (fresh.isEmpty ||
+              !await _writeSectionName(rpc, fresh.first, title)) {
+            throw StateError(Strings.current.renameFolderFailed);
+          }
+        }
+      }
+    } finally {
+      await refreshBots(silent: true);
+    }
+  }
+
+  Future<bool> _writeSectionName(HermesRpc rpc, Bot b, String title) async {
+    final res = await rpc.request('profiles.configure', {
+      'name': b.name,
+      'ui_meta': {
+        Bot.metaKey: {...b.meta, 'sectionName': title},
+      },
+      if (b.metaRevision != null)
+        'ui_meta_expected_revisions': {Bot.metaKey: b.metaRevision},
+    });
+    final applied = res is Map ? res['applied'] : null;
+    return applied is Map && applied['ui_meta'] == true;
   }
 
   // --- chats ---------------------------------------------------------------
@@ -526,9 +603,11 @@ class AppState extends ChangeNotifier {
           : Map<String, int>.from(jsonDecode(seen) as Map);
       collapsed = (p.getStringList('$_localKey::collapsed') ?? const [])
           .toSet();
+      sectionOrder = p.getStringList('$_localKey::sectionOrder') ?? [];
     } catch (_) {
       _seen = {};
       collapsed = {};
+      sectionOrder = [];
     }
   }
 
@@ -543,6 +622,7 @@ class AppState extends ChangeNotifier {
     try {
       final p = await SharedPreferences.getInstance();
       await p.setStringList('$_localKey::collapsed', collapsed.toList());
+      await p.setStringList('$_localKey::sectionOrder', sectionOrder);
     } catch (_) {}
   }
 
