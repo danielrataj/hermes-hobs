@@ -69,9 +69,7 @@ class StringsCs extends Strings {
   @override
   String get filterOlder => 'Starší';
   @override
-  String unreadCount(int n) => 'Nepřečtené: $n';
-  @override
-  String get noUnread => 'Žádné nepřečtené';
+  String get account => 'Účet';
   @override
   String get settings => 'Nastavení';
   @override

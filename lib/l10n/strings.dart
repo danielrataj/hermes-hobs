@@ -76,8 +76,7 @@ abstract class Strings {
   String get filterActive;
   String get filterRecent;
   String get filterOlder;
-  String unreadCount(int n);
-  String get noUnread;
+  String get account;
   String get settings;
   String get signOut;
   String get searchBots;
