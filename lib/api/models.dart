@@ -42,12 +42,12 @@ DateTime? epochToDate(Object? v) {
   return DateTime.fromMillisecondsSinceEpoch(ms);
 }
 
-/// A Hermes profile — each profile is an independent agent ("bot").
+/// A Hermes profile — each profile is an independent agent ("hob").
 ///
 /// Bot Mode appearance lives in `profile.yaml` under `ui_meta['hermes-bots']`
 /// (`title`, `sectionId`/`sectionName`, `color`, `shape`, `pinned`, `hidden`).
-class Bot {
-  Bot({
+class Hob {
+  Hob({
     required this.name,
     required this.displayName,
     this.description = '',
@@ -80,7 +80,7 @@ class Bot {
   final bool pinned;
   final bool hidden;
 
-  /// The bot's forever-chat: the session titled "Bot Chat" on its profile.
+  /// The hob's forever-chat: the session titled "Bot Chat" on its profile.
   final SessionSummary? canonical;
   final SessionSummary? lastSession;
 
@@ -98,7 +98,7 @@ class Bot {
   static const metaKey = 'hermes-bots';
   static const canonicalTitle = 'Bot Chat';
 
-  factory Bot.fromJson(Map<String, dynamic> j) {
+  factory Hob.fromJson(Map<String, dynamic> j) {
     String str(Object? v) => (v is String) ? v.trim() : '';
     final uiMeta = j['ui_meta'];
     final meta = (uiMeta is Map && uiMeta['hermes-bots'] is Map)
@@ -115,7 +115,7 @@ class Bot {
     final model = str(j['model']);
     final revisions = j['ui_meta_revisions'];
     final revision = revisions is Map ? revisions[metaKey] : null;
-    return Bot(
+    return Hob(
       name: name,
       displayName: display,
       description: str(j['description']).isNotEmpty
@@ -140,7 +140,7 @@ class Bot {
     );
   }
 
-  /// The title the user typed for this bot; empty when the name stands in.
+  /// The title the user typed for this hob; empty when the name stands in.
   String get customTitle {
     final t = meta['title'];
     return t is String ? t.trim() : '';
@@ -157,7 +157,7 @@ class Bot {
     return a.isAfter(w) ? a : w;
   }
 
-  /// A worker heartbeat within two minutes means the bot is busy right now.
+  /// A worker heartbeat within two minutes means the hob is busy right now.
   bool get workingNow {
     final w = workerActiveAt;
     return w != null &&
@@ -207,8 +207,8 @@ class ModelProvider {
 /// What `profiles.describe` reports beyond the roster: the model the profile
 /// runs on and its SOUL.md. An empty provider and model mean the profile
 /// inherits the model of the launch profile.
-class BotSetup {
-  const BotSetup({this.provider = '', this.model = '', this.soul = ''});
+class HobSetup {
+  const HobSetup({this.provider = '', this.model = '', this.soul = ''});
 
   final String provider;
   final String model;

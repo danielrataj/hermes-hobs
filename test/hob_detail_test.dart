@@ -5,9 +5,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hobs/api/models.dart';
 import 'package:hobs/state/app_state.dart';
-import 'package:hobs/ui/bot_avatar.dart';
-import 'package:hobs/ui/bot_detail_screen.dart';
-import 'package:hobs/ui/bots_screen.dart';
+import 'package:hobs/ui/hob_avatar.dart';
+import 'package:hobs/ui/hob_detail_screen.dart';
+import 'package:hobs/ui/hobs_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,8 +22,8 @@ void main() {
 
     Future<AppState> pumpList(WidgetTester tester) async {
       final app = AppState()
-        ..bots = [
-          Bot(
+        ..hobs = [
+          Hob(
             name: 'dev-cto',
             displayName: 'CTO',
             description: 'Vede vývoj',
@@ -35,7 +35,7 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
           value: app,
-          child: const MaterialApp(home: BotsScreen()),
+          child: const MaterialApp(home: HobsScreen()),
         ),
       );
       return app;
@@ -46,7 +46,7 @@ void main() {
       await tester.tap(find.byTooltip('Upravit profil: CTO'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(BotDetailScreen), findsOneWidget);
+      expect(find.byType(HobDetailScreen), findsOneWidget);
       expect(find.text('Profil Hobíka'), findsOneWidget);
       expect(find.text('@dev-cto'), findsOneWidget);
       expect(find.widgetWithText(TextField, 'CTO'), findsOneWidget);
@@ -68,7 +68,7 @@ void main() {
       await tester.tap(find.byTooltip('hexagon'));
       await tester.pump();
       expect(save().onPressed, isNotNull);
-      final preview = tester.widget<BotAvatar>(find.byType(BotAvatar).first);
+      final preview = tester.widget<HobAvatar>(find.byType(HobAvatar).first);
       expect(preview.shape, 'hexagon');
 
       await tester.pageBack();
@@ -76,7 +76,7 @@ void main() {
       expect(find.text('Zahodit neuložené změny?'), findsOneWidget);
       await tester.tap(find.text('Zahodit'));
       await tester.pumpAndSettle();
-      expect(find.byType(BotDetailScreen), findsNothing);
+      expect(find.byType(HobDetailScreen), findsNothing);
     });
   });
 
@@ -109,8 +109,8 @@ void main() {
             as Map<String, dynamic>;
 
     test('appearance keeps the rest of the metadata', () async {
-      await app.saveBotAppearance(
-        app.botNamed('cto')!,
+      await app.saveHobAppearance(
+        app.hobNamed('cto')!,
         title: ' Šéf ',
         shape: 'hexagon',
         color: null,
@@ -124,19 +124,19 @@ void main() {
         'custom': true,
       });
 
-      await app.refreshBots(silent: true);
-      expect(app.botNamed('cto')!.displayName, 'Šéf');
+      await app.refreshHobs(silent: true);
+      expect(app.hobNamed('cto')!.displayName, 'Šéf');
     });
 
     test('a stale revision is reread and retried', () async {
       await app.renameSection('section:s1', 'Klienti');
-      final stale = app.botNamed('cto')!;
-      // Another client edits the bot: the app's copy is now one revision old.
+      final stale = app.hobNamed('cto')!;
+      // Another client edits the hob: the app's copy is now one revision old.
       meta()['pinned'] = false;
       (server.roster[0]['ui_meta_revisions'] as Map)['hermes-bots'] = 7;
       server.configures.clear();
 
-      await app.saveBotAppearance(
+      await app.saveHobAppearance(
         stale,
         title: 'CTO',
         shape: stale.shape,
@@ -148,17 +148,17 @@ void main() {
     });
 
     test('description goes through the profile command', () async {
-      await app.saveBotDescription(app.botNamed('cto')!, ' Vede vývoj ');
+      await app.saveHobDescription(app.hobNamed('cto')!, ' Vede vývoj ');
       expect(server.cliCalls, [
         ['profile', 'describe', 'cto', '--text', 'Vede vývoj'],
       ]);
-      await app.refreshBots(silent: true);
-      expect(app.botNamed('cto')!.description, 'Vede vývoj');
+      await app.refreshHobs(silent: true);
+      expect(app.hobNamed('cto')!.description, 'Vede vývoj');
     });
 
     test('model is read, switched, confirmed and unset', () async {
-      final bot = app.botNamed('cto')!;
-      final now = await app.botSetup(bot);
+      final hob = app.hobNamed('cto')!;
+      final now = await app.hobSetup(hob);
       expect((now.provider, now.model), ('nous', 'hermes-4'));
       final providers = await app.modelProviders();
       expect(providers.map((p) => p.label), [
@@ -168,8 +168,8 @@ void main() {
       expect(providers.last.models, ['gpt-6.2-sol']);
 
       expect(
-        await app.saveBotModel(
-          bot,
+        await app.saveHobModel(
+          hob,
           provider: 'openai-codex',
           model: 'gpt-6.2-sol',
         ),
@@ -179,19 +179,19 @@ void main() {
 
       // An expensive model is not switched until the user confirms.
       expect(
-        await app.saveBotModel(bot, provider: 'nous', model: 'hermes-4-pro'),
+        await app.saveHobModel(hob, provider: 'nous', model: 'hermes-4-pro'),
         'Pricey.',
       );
       expect(server.profileModel['default'], 'gpt-6.2-sol');
-      await app.saveBotModel(
-        bot,
+      await app.saveHobModel(
+        hob,
         provider: 'nous',
         model: 'hermes-4-pro',
         confirmed: true,
       );
       expect(server.profileModel['default'], 'hermes-4-pro');
 
-      await app.saveBotModel(bot, provider: '', model: '');
+      await app.saveHobModel(hob, provider: '', model: '');
       expect(server.cliCalls.last, [
         '--profile',
         'cto',
@@ -202,15 +202,15 @@ void main() {
     });
 
     test('SOUL.md is read and replaced', () async {
-      final bot = app.botNamed('cto')!;
-      expect((await app.botSetup(bot)).soul, '# CTO\n\nVede vývoj.\n');
+      final hob = app.hobNamed('cto')!;
+      expect((await app.hobSetup(hob)).soul, '# CTO\n\nVede vývoj.\n');
 
-      await app.saveBotSoul(bot, '# CTO\n\nVede vývoj a testy.\n');
+      await app.saveHobSoul(hob, '# CTO\n\nVede vývoj a testy.\n');
       expect(server.configures.last, {
         'name': 'cto',
         'soul': '# CTO\n\nVede vývoj a testy.',
       });
-      expect((await app.botSetup(bot)).soul, '# CTO\n\nVede vývoj a testy.');
+      expect((await app.hobSetup(hob)).soul, '# CTO\n\nVede vývoj a testy.');
     });
   });
 }

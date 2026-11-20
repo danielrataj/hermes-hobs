@@ -53,11 +53,11 @@ class StringsEn extends Strings {
   String get errorNoSessionCookie =>
       'The server didn\'t return a session cookie';
 
-  // --- bot list ------------------------------------------------------------
+  // --- hob list ------------------------------------------------------------
   @override
-  String get botsTitle => 'Hobs';
+  String get hobsTitle => 'Hobs';
   @override
-  String get pickBot => 'Pick a Hob on the left';
+  String get pickHob => 'Pick a Hob on the left';
   @override
   String get filterAll => 'All';
   @override
@@ -77,11 +77,11 @@ class StringsEn extends Strings {
   @override
   String get signOut => 'Sign out';
   @override
-  String get searchBots => 'Search Hobs';
+  String get searchHobs => 'Search Hobs';
   @override
   String get retry => 'Try again';
   @override
-  String get noBots => 'This server has no Hobs yet.';
+  String get noHobs => 'This server has no Hobs yet.';
   @override
   String get noMatches => 'No Hobs match this filter.';
   @override
@@ -115,11 +115,11 @@ class StringsEn extends Strings {
   @override
   String get moveFolder => 'Move folder';
 
-  // --- bot profile ---------------------------------------------------------
+  // --- hob profile ---------------------------------------------------------
   @override
-  String get botProfile => 'Hob profile';
+  String get hobProfile => 'Hob profile';
   @override
-  String editBot(String bot) => 'Edit profile: $bot';
+  String editHob(String hob) => 'Edit profile: $hob';
   @override
   String get appearance => 'Appearance';
   @override
@@ -131,11 +131,11 @@ class StringsEn extends Strings {
   @override
   String get autoLabel => 'Auto';
   @override
-  String get botTitleLabel => 'Title';
+  String get hobTitleLabel => 'Title';
   @override
-  String get botDescriptionLabel => 'Description';
+  String get hobDescriptionLabel => 'Description';
   @override
-  String get botDescriptionHint => 'What should this Hob help with?';
+  String get hobDescriptionHint => 'What should this Hob help with?';
   @override
   String get modelSection => 'Model';
   @override
@@ -161,11 +161,11 @@ class StringsEn extends Strings {
   @override
   String get switchModel => 'Switch';
   @override
-  String botSaved(String bot) => '$bot profile saved';
+  String hobSaved(String hob) => '$hob profile saved';
   @override
-  String botSaveFailed(String reason) => 'Could not save: $reason';
+  String hobSaveFailed(String reason) => 'Could not save: $reason';
   @override
-  String get botSaveRefused => 'The server refused the change. Try again.';
+  String get hobSaveRefused => 'The server refused the change. Try again.';
   @override
   String get discardChangesTitle => 'Discard unsaved changes?';
   @override
@@ -197,7 +197,7 @@ class StringsEn extends Strings {
   @override
   String activeAgo(String age) => 'active $age';
   @override
-  String writeTo(String bot) => 'Send $bot a message';
+  String writeTo(String hob) => 'Send $hob a message';
   @override
   String get interruptedTag => 'stopped';
   @override
@@ -247,7 +247,7 @@ class StringsEn extends Strings {
   @override
   String get deny => 'Deny';
   @override
-  String get botAsks => 'The Hob has a question';
+  String get hobAsks => 'The Hob has a question';
   @override
   String get orOwnAnswer => 'or write your own answer';
   @override

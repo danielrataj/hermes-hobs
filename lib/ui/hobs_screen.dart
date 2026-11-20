@@ -5,40 +5,40 @@ import '../api/hermes_rpc.dart';
 import '../api/models.dart';
 import '../l10n/strings.dart';
 import '../state/app_state.dart';
-import 'bot_avatar.dart';
-import 'bot_detail_screen.dart';
+import 'hob_avatar.dart';
+import 'hob_detail_screen.dart';
 import 'chat_screen.dart';
 import 'format.dart';
 import 'settings_screen.dart';
 import 'theme.dart';
 
-/// Bot roster grouped into the user's folders. On wide screens the chat
+/// Hob roster grouped into the user's folders. On wide screens the chat
 /// opens beside the list (like the dashboard); on phones it is pushed.
-class BotsScreen extends StatefulWidget {
-  const BotsScreen({super.key});
+class HobsScreen extends StatefulWidget {
+  const HobsScreen({super.key});
 
   @override
-  State<BotsScreen> createState() => _BotsScreenState();
+  State<HobsScreen> createState() => _HobsScreenState();
 }
 
-class _BotsScreenState extends State<BotsScreen> {
+class _HobsScreenState extends State<HobsScreen> {
   String? _selected;
 
   static const _splitBreakpoint = 840.0;
 
-  Future<void> _open(Bot bot, bool wide) async {
+  Future<void> _open(Hob hob, bool wide) async {
     final app = context.read<AppState>();
     if (wide) {
-      setState(() => _selected = bot.name);
-      app.setOpenBot(bot.name);
+      setState(() => _selected = hob.name);
+      app.setOpenHob(hob.name);
       return;
     }
-    app.setOpenBot(bot.name);
+    app.setOpenHob(hob.name);
     await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => ChatScreen(bot: bot)));
+        .push(MaterialPageRoute(builder: (_) => ChatScreen(hob: hob)));
     if (!mounted) return;
-    app.setOpenBot(null);
-    app.refreshBots(silent: true);
+    app.setOpenHob(null);
+    app.refreshHobs(silent: true);
   }
 
   @override
@@ -47,11 +47,11 @@ class _BotsScreenState extends State<BotsScreen> {
     return LayoutBuilder(
       builder: (context, c) {
         final wide = c.maxWidth >= _splitBreakpoint;
-        Bot? selected;
-        for (final b in app.bots) {
+        Hob? selected;
+        for (final b in app.hobs) {
           if (b.name == _selected) selected = b;
         }
-        final list = _BotList(
+        final list = _HobList(
           selected: wide ? _selected : null,
           onOpen: (b) => _open(b, wide),
         );
@@ -65,7 +65,7 @@ class _BotsScreenState extends State<BotsScreen> {
                   ? const _EmptyDetail()
                   : ChatScreen(
                       key: ValueKey(selected.name),
-                      bot: selected,
+                      hob: selected,
                       embedded: true,
                     ),
             ),
@@ -94,7 +94,7 @@ class _EmptyDetail extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              Strings.of(context).pickBot,
+              Strings.of(context).pickHob,
               style: theme.textTheme.titleMedium,
             ),
           ],
@@ -104,17 +104,17 @@ class _EmptyDetail extends StatelessWidget {
   }
 }
 
-class _BotList extends StatefulWidget {
-  const _BotList({required this.onOpen, this.selected});
+class _HobList extends StatefulWidget {
+  const _HobList({required this.onOpen, this.selected});
 
-  final void Function(Bot bot) onOpen;
+  final void Function(Hob hob) onOpen;
   final String? selected;
 
   @override
-  State<_BotList> createState() => _BotListState();
+  State<_HobList> createState() => _HobListState();
 }
 
-class _BotListState extends State<_BotList> {
+class _HobListState extends State<_HobList> {
   final _search = TextEditingController();
 
   @override
@@ -129,13 +129,13 @@ class _BotListState extends State<_BotList> {
     super.dispose();
   }
 
-  static List<(BotFilter, String)> _filters(Strings s) => [
-    (BotFilter.all, s.filterAll),
-    (BotFilter.unread, s.filterUnread),
-    (BotFilter.pinned, s.filterPinned),
-    (BotFilter.active, s.filterActive),
-    (BotFilter.recent, s.filterRecent),
-    (BotFilter.older, s.filterOlder),
+  static List<(HobFilter, String)> _filters(Strings s) => [
+    (HobFilter.all, s.filterAll),
+    (HobFilter.unread, s.filterUnread),
+    (HobFilter.pinned, s.filterPinned),
+    (HobFilter.active, s.filterActive),
+    (HobFilter.recent, s.filterRecent),
+    (HobFilter.older, s.filterOlder),
   ];
 
   @override
@@ -144,7 +144,7 @@ class _BotListState extends State<_BotList> {
     final theme = Theme.of(context);
     final s = Strings.of(context);
     final sections = app.sections;
-    final unread = app.bots.where(app.isUnread).length;
+    final unread = app.hobs.where(app.isUnread).length;
     return Scaffold(
       appBar: AppBar(
         centerTitle: false,
@@ -153,7 +153,7 @@ class _BotListState extends State<_BotList> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(s.botsTitle),
+            Text(s.hobsTitle),
             _ConnectionLine(status: app.connection),
           ],
         ),
@@ -171,7 +171,7 @@ class _BotListState extends State<_BotList> {
               onChanged: app.setQuery,
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                hintText: s.searchBots,
+                hintText: s.searchHobs,
                 prefixIcon: const Icon(Icons.search, size: 20),
                 suffixIcon: app.query.isEmpty
                     ? null
@@ -196,7 +196,7 @@ class _BotListState extends State<_BotList> {
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: ChoiceChip(
-                      label: f == BotFilter.unread && unread > 0
+                      label: f == HobFilter.unread && unread > 0
                           ? _CountLabel(label: label, count: unread)
                           : Text(label),
                       selected: app.filter == f,
@@ -210,7 +210,7 @@ class _BotListState extends State<_BotList> {
           ),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: app.refreshBots,
+              onRefresh: app.refreshHobs,
               child: _buildBody(app, theme, s, sections),
             ),
           ),
@@ -223,22 +223,22 @@ class _BotListState extends State<_BotList> {
     AppState app,
     ThemeData theme,
     Strings s,
-    List<BotSection> sections,
+    List<HobSection> sections,
   ) {
-    if (app.loadingBots && app.bots.isEmpty) {
+    if (app.loadingHobs && app.hobs.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (app.botsError != null && app.bots.isEmpty) {
+    if (app.hobsError != null && app.hobs.isEmpty) {
       return ListView(
         children: [
           const SizedBox(height: 100),
           Icon(Icons.cloud_off, size: 48, color: theme.colorScheme.error),
           const SizedBox(height: 12),
-          Center(child: Text(app.botsError!, textAlign: TextAlign.center)),
+          Center(child: Text(app.hobsError!, textAlign: TextAlign.center)),
           const SizedBox(height: 12),
           Center(
             child: OutlinedButton(
-              onPressed: app.refreshBots,
+              onPressed: app.refreshHobs,
               child: Text(s.retry),
             ),
           ),
@@ -249,14 +249,14 @@ class _BotListState extends State<_BotList> {
       return ListView(
         children: [
           const SizedBox(height: 100),
-          Center(child: Text(app.bots.isEmpty ? s.noBots : s.noMatches)),
+          Center(child: Text(app.hobs.isEmpty ? s.noHobs : s.noMatches)),
         ],
       );
     }
     if (!app.hasFolders) {
       return ListView(
         children: [
-          for (final b in sections.expand((s) => s.bots)) _botRow(app, b),
+          for (final b in sections.expand((s) => s.hobs)) _hobRow(app, b),
           const SizedBox(height: 24),
         ],
       );
@@ -264,11 +264,11 @@ class _BotListState extends State<_BotList> {
     // Folders are the draggable items; "unassigned" always stays last.
     final folders = [
       for (final s in sections)
-        if (s.key != BotSection.unassignedKey) s,
+        if (s.key != HobSection.unassignedKey) s,
     ];
     final rest = [
       for (final s in sections)
-        if (s.key == BotSection.unassignedKey) s,
+        if (s.key == HobSection.unassignedKey) s,
     ];
     return ReorderableListView.builder(
       buildDefaultDragHandles: false,
@@ -299,38 +299,38 @@ class _BotListState extends State<_BotList> {
     );
   }
 
-  Widget _botRow(AppState app, Bot b) => _BotRow(
-    bot: b,
+  Widget _hobRow(AppState app, Hob b) => _HobRow(
+    hob: b,
     selected: b.name == widget.selected,
     unread: app.isUnread(b),
     working: app.isWorking(b),
     onTap: () => widget.onOpen(b),
-    onAvatarTap: () => BotDetailScreen.open(context, b),
+    onAvatarTap: () => HobDetailScreen.open(context, b),
   );
 
-  /// One folder: its header and, unless collapsed, its bots. [dragIndex] is
+  /// One folder: its header and, unless collapsed, its hobs. [dragIndex] is
   /// set for folders the user can drag to a new place and rename.
-  Widget _section(AppState app, BotSection s, {int? dragIndex}) {
+  Widget _section(AppState app, HobSection s, {int? dragIndex}) {
     final isCollapsed = app.collapsed.contains(s.key) && app.query.isEmpty;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _SectionHeader(
           title: s.title,
-          count: s.bots.length,
+          count: s.hobs.length,
           collapsed: isCollapsed,
-          unread: s.bots.where(app.isUnread).length,
+          unread: s.hobs.where(app.isUnread).length,
           onTap: () => app.toggleSection(s.key),
           dragIndex: dragIndex,
           onRename: dragIndex == null ? null : () => _renameSection(app, s),
         ),
         if (!isCollapsed)
-          for (final b in s.bots) _botRow(app, b),
+          for (final b in s.hobs) _hobRow(app, b),
       ],
     );
   }
 
-  Future<void> _renameSection(AppState app, BotSection section) async {
+  Future<void> _renameSection(AppState app, HobSection section) async {
     final s = Strings.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final name = await showDialog<String>(
@@ -508,9 +508,9 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _BotRow extends StatelessWidget {
-  const _BotRow({
-    required this.bot,
+class _HobRow extends StatelessWidget {
+  const _HobRow({
+    required this.hob,
     required this.selected,
     required this.unread,
     required this.working,
@@ -518,13 +518,13 @@ class _BotRow extends StatelessWidget {
     required this.onAvatarTap,
   });
 
-  final Bot bot;
+  final Hob hob;
   final bool selected;
   final bool unread;
   final bool working;
   final VoidCallback onTap;
 
-  /// The avatar opens the bot's profile; the rest of the row opens the chat.
+  /// The avatar opens the hob's profile; the rest of the row opens the chat.
   final VoidCallback onAvatarTap;
 
   @override
@@ -533,7 +533,7 @@ class _BotRow extends StatelessWidget {
     final cs = theme.colorScheme;
     final s = Strings.of(context);
     final preview = plainPreview(
-      bot.preview.isNotEmpty ? bot.preview : bot.description,
+      hob.preview.isNotEmpty ? hob.preview : hob.description,
     );
     return Material(
       color: selected
@@ -546,13 +546,13 @@ class _BotRow extends StatelessWidget {
           child: Row(
             children: [
               Tooltip(
-                message: s.editBot(bot.displayName),
+                message: s.editHob(hob.displayName),
                 child: InkResponse(
                   onTap: onAvatarTap,
                   radius: 26,
                   child: Padding(
                     padding: const EdgeInsets.all(5),
-                    child: BotAvatar(bot: bot, size: 38, working: working),
+                    child: HobAvatar(hob: hob, size: 38, working: working),
                   ),
                 ),
               ),
@@ -568,7 +568,7 @@ class _BotRow extends StatelessWidget {
                             children: [
                               Flexible(
                                 child: Text(
-                                  bot.displayName,
+                                  hob.displayName,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.titleSmall?.copyWith(
                                     fontWeight: unread
@@ -577,7 +577,7 @@ class _BotRow extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              if (bot.pinned) ...[
+                              if (hob.pinned) ...[
                                 const SizedBox(width: 4),
                                 Icon(
                                   Icons.push_pin_outlined,
@@ -590,7 +590,7 @@ class _BotRow extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          working ? s.working : relativeAge(bot.lastActive),
+                          working ? s.working : relativeAge(hob.lastActive),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: working
                                 ? HobsColors.of(context).working
@@ -673,7 +673,7 @@ class _ConnectionLine extends StatelessWidget {
   }
 }
 
-/// Filter chip label with the number of waiting bots next to it.
+/// Filter chip label with the number of waiting hobs next to it.
 class _CountLabel extends StatelessWidget {
   const _CountLabel({required this.label, required this.count});
 

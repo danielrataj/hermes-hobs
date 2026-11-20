@@ -15,23 +15,23 @@ import 'credentials_store.dart';
 
 enum AuthPhase { loading, signedOut, signedIn }
 
-enum BotFilter { all, unread, pinned, active, recent, older }
+enum HobFilter { all, unread, pinned, active, recent, older }
 
-/// One collapsible folder of the bot list.
-class BotSection {
-  BotSection({required this.key, required this.title, required this.bots});
+/// One collapsible folder of the hob list.
+class HobSection {
+  HobSection({required this.key, required this.title, required this.hobs});
 
   /// `section:<id>` or [unassignedKey].
   final String key;
   final String title;
-  final List<Bot> bots;
+  final List<Hob> hobs;
 
   static const unassignedKey = 'section:unassigned';
 }
 
-/// App-wide state: login, the bot roster (Hermes profiles with their Bot Chat
+/// App-wide state: login, the hob roster (Hermes profiles with their Bot Chat
 /// summaries), local unread/collapse bookkeeping, and one live
-/// [ChatController] per bot that survives navigating away from the chat.
+/// [ChatController] per hob that survives navigating away from the chat.
 class AppState extends ChangeNotifier {
   AppState({CredentialsStore? store}) : _store = store ?? CredentialsStore();
 
@@ -60,25 +60,25 @@ class AppState extends ChangeNotifier {
   StreamSubscription<ConnectionStatus>? _statusSub;
   Timer? _rosterTimer;
 
-  List<Bot> bots = [];
+  List<Hob> hobs = [];
 
-  /// Bots the roster hides. They still belong to folders, so a folder rename
+  /// Hobs the roster hides. They still belong to folders, so a folder rename
   /// has to reach them too.
-  List<Bot> _hiddenBots = [];
-  bool loadingBots = false;
-  String? botsError;
+  List<Hob> _hiddenHobs = [];
+  bool loadingHobs = false;
+  String? hobsError;
   final Map<String, ChatController> _chats = {};
 
   // Local, per-device bookkeeping (like the dashboard's own storage).
-  Map<String, int> _seen = {}; // bot name -> last seen activity (ms)
+  Map<String, int> _seen = {}; // hob name -> last seen activity (ms)
   Set<String> collapsed = {};
 
   /// Folder keys in the order the user dragged them into. Kept per device,
   /// like the dashboard keeps its own. Folders missing here go last, by name.
   List<String> sectionOrder = [];
-  BotFilter filter = BotFilter.all;
+  HobFilter filter = HobFilter.all;
   String query = '';
-  String? openBot;
+  String? openHob;
 
   static const _rosterEvery = Duration(seconds: 20);
 
@@ -111,7 +111,7 @@ class AppState extends ChangeNotifier {
       } else {
         // Offline / server down: stay signed in, let the user retry.
         _enterSignedIn();
-        botsError = describeError(e);
+        hobsError = describeError(e);
       }
       notifyListeners();
     }
@@ -146,7 +146,7 @@ class AppState extends ChangeNotifier {
     http.onCookiesChanged = (c) => _store.saveCookies(c);
     final rpc = HermesRpc(http)..onUnauthorized = _onSessionExpired;
     _statusSub = rpc.statusStream.listen((s) {
-      if (s == ConnectionStatus.connected) unawaited(refreshBots(silent: true));
+      if (s == ConnectionStatus.connected) unawaited(refreshHobs(silent: true));
       notifyListeners();
     });
     _http = http;
@@ -157,11 +157,11 @@ class AppState extends ChangeNotifier {
     phase = AuthPhase.signedIn;
     notifyListeners();
     _rpc!.connect().catchError((_) {});
-    unawaited(refreshBots());
+    unawaited(refreshHobs());
     _rosterTimer?.cancel();
     _rosterTimer = Timer.periodic(_rosterEvery, (_) {
       if (connection == ConnectionStatus.connected) {
-        unawaited(refreshBots(silent: true));
+        unawaited(refreshHobs(silent: true));
       }
     });
   }
@@ -232,7 +232,7 @@ class AppState extends ChangeNotifier {
     phase = AuthPhase.loading;
     notifyListeners();
     _teardown(clearCookies: true).then((_) async {
-      botsError = null;
+      hobsError = null;
       if (await _silentLogin()) return;
       phase = AuthPhase.signedOut;
       notifyListeners();
@@ -256,19 +256,19 @@ class AppState extends ChangeNotifier {
     }
     _http?.close();
     _http = null;
-    bots = [];
-    _hiddenBots = [];
+    hobs = [];
+    _hiddenHobs = [];
   }
 
   // --- roster --------------------------------------------------------------
 
-  Future<List<Bot>> _fetchRoster() async {
-    final all = await _fetchAllBots();
-    _hiddenBots = all.where((b) => b.hidden).toList();
+  Future<List<Hob>> _fetchRoster() async {
+    final all = await _fetchAllHobs();
+    _hiddenHobs = all.where((b) => b.hidden).toList();
     return all.where((b) => !b.hidden).toList();
   }
 
-  Future<List<Bot>> _fetchAllBots() async {
+  Future<List<Hob>> _fetchAllHobs() async {
     final rpc = _rpc;
     if (rpc != null) {
       try {
@@ -287,28 +287,28 @@ class AppState extends ChangeNotifier {
     return _parseRoster(res['profiles']);
   }
 
-  static List<Bot> _parseRoster(Object? rows) => (rows as List? ?? const [])
+  static List<Hob> _parseRoster(Object? rows) => (rows as List? ?? const [])
       .whereType<Map>()
-      .map((m) => Bot.fromJson(Map<String, dynamic>.from(m)))
+      .map((m) => Hob.fromJson(Map<String, dynamic>.from(m)))
       .where((b) => b.name.isNotEmpty)
       .toList();
 
-  Future<void> refreshBots({bool silent = false}) async {
+  Future<void> refreshHobs({bool silent = false}) async {
     if (_http == null) return;
-    if (loadingBots) return;
-    loadingBots = true;
+    if (loadingHobs) return;
+    loadingHobs = true;
     if (!silent) {
-      botsError = null;
+      hobsError = null;
       notifyListeners();
     }
     try {
       final list = await _fetchRoster();
-      bots = list;
-      botsError = null;
+      hobs = list;
+      hobsError = null;
       for (final b in list) {
-        _chats[b.name]?.updateBot(b);
+        _chats[b.name]?.updateHob(b);
       }
-      // First sight of a bot: everything already there counts as read.
+      // First sight of a hob: everything already there counts as read.
       var seededSeen = false;
       for (final b in list) {
         if (!_seen.containsKey(b.name)) {
@@ -319,13 +319,13 @@ class AppState extends ChangeNotifier {
       if (seededSeen) unawaited(_saveSeen());
     } catch (e) {
       if (e is HermesHttpException && e.isUnauthorized) {
-        loadingBots = false;
+        loadingHobs = false;
         _onSessionExpired();
         return;
       }
-      if (!silent || bots.isEmpty) botsError = describeError(e);
+      if (!silent || hobs.isEmpty) hobsError = describeError(e);
     } finally {
-      loadingBots = false;
+      loadingHobs = false;
       notifyListeners();
     }
   }
@@ -333,7 +333,7 @@ class AppState extends ChangeNotifier {
   Future<SessionSummary?> _findCanonical(String profile) async {
     try {
       final list = await _fetchRoster();
-      bots = list;
+      hobs = list;
       notifyListeners();
       for (final b in list) {
         if (b.name == profile) return b.canonical;
@@ -344,33 +344,33 @@ class AppState extends ChangeNotifier {
 
   // --- derived views -------------------------------------------------------
 
-  bool isUnread(Bot b) {
-    if (b.name == openBot) return false;
+  bool isUnread(Hob b) {
+    if (b.name == openHob) return false;
     final last = b.canonical?.lastActive;
     if (last == null) return false;
     return last.millisecondsSinceEpoch > (_seen[b.name] ?? 0) + 1000;
   }
 
-  bool isWorking(Bot b) => b.workingNow || (_chats[b.name]?.busy ?? false);
+  bool isWorking(Hob b) => b.workingNow || (_chats[b.name]?.busy ?? false);
 
-  bool _matchesFilter(Bot b) {
+  bool _matchesFilter(Hob b) {
     final last = b.lastActive;
     final age = last == null ? null : DateTime.now().difference(last);
     switch (filter) {
-      case BotFilter.all:
+      case HobFilter.all:
         break;
-      case BotFilter.unread:
+      case HobFilter.unread:
         if (!isUnread(b)) return false;
-      case BotFilter.pinned:
+      case HobFilter.pinned:
         if (!b.pinned) return false;
-      case BotFilter.active:
+      case HobFilter.active:
         if (!(isWorking(b) ||
             (age != null && age < const Duration(minutes: 15)))) {
           return false;
         }
-      case BotFilter.recent:
+      case HobFilter.recent:
         if (age == null || age > const Duration(days: 1)) return false;
-      case BotFilter.older:
+      case HobFilter.older:
         if (age != null && age <= const Duration(days: 1)) return false;
     }
     final q = query.trim().toLowerCase();
@@ -380,25 +380,25 @@ class AppState extends ChangeNotifier {
         b.description.toLowerCase().contains(q);
   }
 
-  /// Bots grouped into the user's folders (`ui_meta.sectionId/sectionName`),
+  /// Hobs grouped into the user's folders (`ui_meta.sectionId/sectionName`),
   /// "Nezařazení" last. Inside a folder: pinned first, then newest activity.
-  List<BotSection> get sections => _sections(bots.where(_matchesFilter));
+  List<HobSection> get sections => _sections(hobs.where(_matchesFilter));
 
-  List<BotSection> _sections(Iterable<Bot> members) {
-    final byKey = <String, BotSection>{};
+  List<HobSection> _sections(Iterable<Hob> members) {
+    final byKey = <String, HobSection>{};
     for (final b in members) {
       final key = b.sectionId != null
           ? 'section:${b.sectionId}'
-          : BotSection.unassignedKey;
+          : HobSection.unassignedKey;
       final title = b.sectionId != null
           ? (b.sectionName ?? Strings.current.folderFallback)
           : Strings.current.unassigned;
       byKey
-          .putIfAbsent(key, () => BotSection(key: key, title: title, bots: []))
-          .bots
+          .putIfAbsent(key, () => HobSection(key: key, title: title, hobs: []))
+          .hobs
           .add(b);
     }
-    int byActivity(Bot a, Bot b) {
+    int byActivity(Hob a, Hob b) {
       if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
       final ta = a.lastActive?.millisecondsSinceEpoch ?? 0;
       final tb = b.lastActive?.millisecondsSinceEpoch ?? 0;
@@ -407,28 +407,28 @@ class AppState extends ChangeNotifier {
     }
 
     for (final s in byKey.values) {
-      s.bots.sort(byActivity);
+      s.hobs.sort(byActivity);
     }
-    int rank(BotSection s) {
+    int rank(HobSection s) {
       final i = sectionOrder.indexOf(s.key);
       return i < 0 ? sectionOrder.length : i;
     }
 
     final named =
-        byKey.values.where((s) => s.key != BotSection.unassignedKey).toList()
+        byKey.values.where((s) => s.key != HobSection.unassignedKey).toList()
           ..sort((a, b) {
             final byRank = rank(a).compareTo(rank(b));
             if (byRank != 0) return byRank;
             return a.title.toLowerCase().compareTo(b.title.toLowerCase());
           });
-    final rest = byKey[BotSection.unassignedKey];
+    final rest = byKey[HobSection.unassignedKey];
     return [...named, ?rest];
   }
 
   /// True when the server has no user folders at all: draw a flat list.
-  bool get hasFolders => bots.any((b) => b.sectionId != null);
+  bool get hasFolders => hobs.any((b) => b.sectionId != null);
 
-  void setFilter(BotFilter f) {
+  void setFilter(HobFilter f) {
     filter = f;
     notifyListeners();
   }
@@ -448,10 +448,10 @@ class AppState extends ChangeNotifier {
   /// folders when [before] is null. Works on every folder, also the ones the
   /// current search or filter hides.
   void moveSection(String key, {String? before}) {
-    if (key == BotSection.unassignedKey || key == before) return;
+    if (key == HobSection.unassignedKey || key == before) return;
     final order = [
-      for (final s in _sections(bots))
-        if (s.key != BotSection.unassignedKey && s.key != key) s.key,
+      for (final s in _sections(hobs))
+        if (s.key != HobSection.unassignedKey && s.key != key) s.key,
     ];
     final at = before == null ? -1 : order.indexOf(before);
     order.insert(at < 0 ? order.length : at, key);
@@ -461,18 +461,18 @@ class AppState extends ChangeNotifier {
   }
 
   /// Renames folder [key] the way the dashboard does: the name lives in every
-  /// member bot's profile metadata, so each member gets the new name.
+  /// member hob's profile metadata, so each member gets the new name.
   /// Throws when the server refuses a write.
   Future<void> renameSection(String key, String name) async {
     final title = name.trim();
     final rpc = _rpc;
-    if (title.isEmpty || rpc == null || key == BotSection.unassignedKey) return;
+    if (title.isEmpty || rpc == null || key == HobSection.unassignedKey) return;
     try {
-      for (final b in [...bots, ..._hiddenBots]) {
+      for (final b in [...hobs, ..._hiddenHobs]) {
         if ('section:${b.sectionId}' != key || b.sectionName == title) continue;
         if (!await _writeSectionName(rpc, b, title)) {
-          // Someone else edited the bot meanwhile: reread it and retry once.
-          final fresh = (await _fetchAllBots()).where((x) => x.name == b.name);
+          // Someone else edited the hob meanwhile: reread it and retry once.
+          final fresh = (await _fetchAllHobs()).where((x) => x.name == b.name);
           if (fresh.isEmpty ||
               !await _writeSectionName(rpc, fresh.first, title)) {
             throw StateError(Strings.current.renameFolderFailed);
@@ -480,35 +480,35 @@ class AppState extends ChangeNotifier {
         }
       }
     } finally {
-      await refreshBots(silent: true);
+      await refreshHobs(silent: true);
     }
   }
 
-  Future<bool> _writeSectionName(HermesRpc rpc, Bot b, String title) =>
+  Future<bool> _writeSectionName(HermesRpc rpc, Hob b, String title) =>
       _writeMeta(rpc, b, {...b.meta, 'sectionName': title});
 
-  /// Replaces the bot's whole `hermes-bots` block. False when the server
-  /// refused it, e.g. because someone else edited the bot meanwhile.
+  /// Replaces the hob's whole `hermes-bots` block. False when the server
+  /// refused it, e.g. because someone else edited the hob meanwhile.
   Future<bool> _writeMeta(
     HermesRpc rpc,
-    Bot b,
+    Hob b,
     Map<String, dynamic> meta,
   ) async {
     final res = await rpc.request('profiles.configure', {
       'name': b.name,
-      'ui_meta': {Bot.metaKey: meta},
+      'ui_meta': {Hob.metaKey: meta},
       if (b.metaRevision != null)
-        'ui_meta_expected_revisions': {Bot.metaKey: b.metaRevision},
+        'ui_meta_expected_revisions': {Hob.metaKey: b.metaRevision},
     });
     final applied = res is Map ? res['applied'] : null;
     return applied is Map && applied['ui_meta'] == true;
   }
 
-  // --- bot profile ---------------------------------------------------------
+  // --- hob profile ---------------------------------------------------------
 
-  /// The bot as the roster knows it now (hidden ones included).
-  Bot? botNamed(String name) {
-    for (final b in [...bots, ..._hiddenBots]) {
+  /// The hob as the roster knows it now (hidden ones included).
+  Hob? hobNamed(String name) {
+    for (final b in [...hobs, ..._hiddenHobs]) {
       if (b.name == name) return b;
     }
     return null;
@@ -520,21 +520,21 @@ class AppState extends ChangeNotifier {
     return rpc;
   }
 
-  /// The provider, model and SOUL.md the bot's profile is set to.
-  Future<BotSetup> botSetup(Bot bot) async {
+  /// The provider, model and SOUL.md the hob's profile is set to.
+  Future<HobSetup> hobSetup(Hob hob) async {
     final res = await _connected.requestWith('profiles.describe', {
-      'name': bot.name,
+      'name': hob.name,
     }, timeout: const Duration(seconds: 30));
-    if (res is! Map) return const BotSetup();
+    if (res is! Map) return const HobSetup();
     final model = res['model'];
-    return BotSetup(
+    return HobSetup(
       provider: model is Map ? model['provider']?.toString().trim() ?? '' : '',
       model: model is Map ? model['default']?.toString().trim() ?? '' : '',
       soul: res['soul']?.toString() ?? '',
     );
   }
 
-  /// Providers and their models a bot can be switched to.
+  /// Providers and their models a hob can be switched to.
   Future<List<ModelProvider>> modelProviders() async {
     final res = await _connected.requestWith('model.options', {
       'include_unconfigured': true,
@@ -547,16 +547,16 @@ class AppState extends ChangeNotifier {
         .toList();
   }
 
-  /// Saves the bot's title and face. A null [shape] or [color] goes back to
-  /// the one derived from the bot's name. Throws when the server refuses.
-  Future<void> saveBotAppearance(
-    Bot bot, {
+  /// Saves the hob's title and face. A null [shape] or [color] goes back to
+  /// the one derived from the hob's name. Throws when the server refuses.
+  Future<void> saveHobAppearance(
+    Hob hob, {
     required String title,
     required String? shape,
     required String? color,
   }) async {
     final rpc = _connected;
-    Map<String, dynamic> edited(Bot b) {
+    Map<String, dynamic> edited(Hob b) {
       final meta = {...b.meta};
       void put(String key, String? value) =>
           value == null ? meta.remove(key) : meta[key] = value;
@@ -569,30 +569,30 @@ class AppState extends ChangeNotifier {
       return meta;
     }
 
-    if (await _writeMeta(rpc, bot, edited(bot))) return;
-    // Someone else edited the bot meanwhile: reread it and retry once.
-    final fresh = (await _fetchAllBots()).where((x) => x.name == bot.name);
+    if (await _writeMeta(rpc, hob, edited(hob))) return;
+    // Someone else edited the hob meanwhile: reread it and retry once.
+    final fresh = (await _fetchAllHobs()).where((x) => x.name == hob.name);
     if (fresh.isEmpty ||
         !await _writeMeta(rpc, fresh.first, edited(fresh.first))) {
-      throw StateError(Strings.current.botSaveRefused);
+      throw StateError(Strings.current.hobSaveRefused);
     }
   }
 
-  /// Saves the bot's description (`hermes profile describe`).
-  Future<void> saveBotDescription(Bot bot, String text) async {
+  /// Saves the hob's description (`hermes profile describe`).
+  Future<void> saveHobDescription(Hob hob, String text) async {
     _checkCli(
       await _connected.requestWith('cli.exec', {
-        'argv': ['profile', 'describe', bot.name, '--text', text.trim()],
+        'argv': ['profile', 'describe', hob.name, '--text', text.trim()],
       }, timeout: const Duration(seconds: 30)),
     );
   }
 
-  /// Switches the bot to [provider] and [model]; both empty makes it inherit
+  /// Switches the hob to [provider] and [model]; both empty makes it inherit
   /// the launch profile's model again. Returns the server's question when it
   /// wants the switch confirmed (an expensive model): ask the user and call
   /// again with [confirmed].
-  Future<String?> saveBotModel(
-    Bot bot, {
+  Future<String?> saveHobModel(
+    Hob hob, {
     required String provider,
     required String model,
     bool confirmed = false,
@@ -601,13 +601,13 @@ class AppState extends ChangeNotifier {
     if (provider.isEmpty && model.isEmpty) {
       _checkCli(
         await rpc.requestWith('cli.exec', {
-          'argv': ['--profile', bot.name, 'config', 'unset', 'model'],
+          'argv': ['--profile', hob.name, 'config', 'unset', 'model'],
         }, timeout: const Duration(seconds: 30)),
       );
       return null;
     }
     final res = await rpc.requestWith('profiles.configure', {
-      'name': bot.name,
+      'name': hob.name,
       'model': model,
       'provider': provider,
       if (confirmed) 'confirm_expensive_model': true,
@@ -617,20 +617,20 @@ class AppState extends ChangeNotifier {
     }
     final applied = res is Map ? res['applied'] : null;
     if (applied is! Map || applied['model'] != true) {
-      throw StateError(Strings.current.botSaveRefused);
+      throw StateError(Strings.current.hobSaveRefused);
     }
     return null;
   }
 
-  /// Replaces the bot's SOUL.md. Throws when the server refuses.
-  Future<void> saveBotSoul(Bot bot, String soul) async {
+  /// Replaces the hob's SOUL.md. Throws when the server refuses.
+  Future<void> saveHobSoul(Hob hob, String soul) async {
     final res = await _connected.requestWith('profiles.configure', {
-      'name': bot.name,
+      'name': hob.name,
       'soul': soul.trim(),
     }, timeout: const Duration(seconds: 30));
     final applied = res is Map ? res['applied'] : null;
     if (applied is! Map || applied['soul'] != true) {
-      throw StateError(Strings.current.botSaveRefused);
+      throw StateError(Strings.current.hobSaveRefused);
     }
   }
 
@@ -639,33 +639,33 @@ class AppState extends ChangeNotifier {
     final code = res['code'];
     if (res['blocked'] == true || (code is num && code != 0)) {
       final err = (res['stderr'] ?? res['error'] ?? '').toString().trim();
-      throw StateError(err.isEmpty ? Strings.current.botSaveRefused : err);
+      throw StateError(err.isEmpty ? Strings.current.hobSaveRefused : err);
     }
   }
 
   // --- chats ---------------------------------------------------------------
 
-  /// Returns the live chat for [bot], creating and opening it on first use.
-  ChatController chatFor(Bot bot) {
-    final existing = _chats[bot.name];
+  /// Returns the live chat for [hob], creating and opening it on first use.
+  ChatController chatFor(Hob hob) {
+    final existing = _chats[hob.name];
     if (existing != null) return existing;
     final c = ChatController(
       rpc: _rpc!,
-      bot: bot,
+      hob: hob,
       findCanonical: _findCanonical,
       onTurnSettled: (b) {
-        if (openBot == b.name) markSeen(b.name);
-        unawaited(refreshBots(silent: true));
+        if (openHob == b.name) markSeen(b.name);
+        unawaited(refreshHobs(silent: true));
       },
     );
-    _chats[bot.name] = c;
+    _chats[hob.name] = c;
     unawaited(c.start());
     return c;
   }
 
-  void setOpenBot(String? name) {
-    final prev = openBot;
-    openBot = name;
+  void setOpenHob(String? name) {
+    final prev = openHob;
+    openHob = name;
     if (name != null) markSeen(name);
     if (prev != null && prev != name) markSeen(prev);
     Future.microtask(notifyListeners);
@@ -676,13 +676,13 @@ class AppState extends ChangeNotifier {
     unawaited(_saveSeen());
   }
 
-  Future<List<CronJob>> cronJobs(Bot bot) async {
+  Future<List<CronJob>> cronJobs(Hob hob) async {
     final rpc = _rpc;
     if (rpc == null) return [];
     await rpc.connect();
     final res = await rpc.requestWith('cron.manage', {
       'action': 'list',
-      'profile': bot.name,
+      'profile': hob.name,
       'include_disabled': true,
     }, timeout: const Duration(seconds: 30));
     if (res is! Map) return [];
@@ -699,7 +699,7 @@ class AppState extends ChangeNotifier {
 
   void onAppResumed() {
     _rpc?.reconnectNow();
-    if (phase == AuthPhase.signedIn) unawaited(refreshBots(silent: true));
+    if (phase == AuthPhase.signedIn) unawaited(refreshHobs(silent: true));
   }
 
   // --- language ------------------------------------------------------------

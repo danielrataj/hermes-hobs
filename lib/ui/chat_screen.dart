@@ -8,24 +8,24 @@ import '../api/models.dart';
 import '../l10n/strings.dart';
 import '../state/app_state.dart';
 import '../state/chat_controller.dart';
-import 'bot_avatar.dart';
-import 'bot_detail_screen.dart';
+import 'hob_avatar.dart';
+import 'hob_detail_screen.dart';
 import 'cron_sheet.dart';
 import 'format.dart';
 import 'pull_up_reload.dart';
 import 'theme.dart';
 
 class ChatScreen extends StatelessWidget {
-  const ChatScreen({super.key, required this.bot, this.embedded = false});
+  const ChatScreen({super.key, required this.hob, this.embedded = false});
 
-  final Bot bot;
+  final Hob hob;
 
-  /// True when shown beside the bot list (no back button).
+  /// True when shown beside the hob list (no back button).
   final bool embedded;
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.read<AppState>().chatFor(bot);
+    final controller = context.read<AppState>().chatFor(hob);
     return ChangeNotifierProvider.value(
       value: controller,
       child: ChatView(embedded: embedded),
@@ -99,7 +99,7 @@ class _ChatViewState extends State<ChatView> {
     final c = context.watch<ChatController>();
     final theme = Theme.of(context);
     final s = Strings.of(context);
-    final working = c.busy || c.bot.workingNow;
+    final working = c.busy || c.hob.workingNow;
     final prompt = c.lastPrompt;
     return Scaffold(
       appBar: AppBar(
@@ -108,11 +108,11 @@ class _ChatViewState extends State<ChatView> {
         title: Row(
           children: [
             Tooltip(
-              message: s.editBot(c.bot.displayName),
+              message: s.editHob(c.hob.displayName),
               child: InkResponse(
-                onTap: () => BotDetailScreen.open(context, c.bot),
+                onTap: () => HobDetailScreen.open(context, c.hob),
                 radius: 24,
-                child: BotAvatar(bot: c.bot, size: 30, working: working),
+                child: HobAvatar(hob: c.hob, size: 30, working: working),
               ),
             ),
             const SizedBox(width: 10),
@@ -120,7 +120,7 @@ class _ChatViewState extends State<ChatView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(c.bot.displayName, overflow: TextOverflow.ellipsis),
+                  Text(c.hob.displayName, overflow: TextOverflow.ellipsis),
                   Text(
                     _subtitle(c, s),
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -138,7 +138,7 @@ class _ChatViewState extends State<ChatView> {
         actions: [
           IconButton(
             tooltip: s.scheduledJobs,
-            onPressed: () => showCronSheet(context, c.bot),
+            onPressed: () => showCronSheet(context, c.hob),
             icon: const Icon(Icons.event_repeat_outlined),
           ),
         ],
@@ -229,9 +229,9 @@ class _ChatViewState extends State<ChatView> {
   String _subtitle(ChatController c, Strings s) {
     if (c.phase == ChatPhase.starting) return s.openingChat;
     if (c.busy) return s.workingOn(c.statusText);
-    if (c.bot.workingNow) return s.workingInBackground;
-    final last = c.bot.lastActive;
-    return last != null ? s.activeAgo(relativeAge(last)) : (c.bot.description);
+    if (c.hob.workingNow) return s.workingInBackground;
+    final last = c.hob.lastActive;
+    return last != null ? s.activeAgo(relativeAge(last)) : (c.hob.description);
   }
 
   Widget _buildMessages(ChatController c, ThemeData theme) {
@@ -245,16 +245,16 @@ class _ChatViewState extends State<ChatView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              BotAvatar(bot: c.bot, size: 64),
+              HobAvatar(hob: c.hob, size: 64),
               const SizedBox(height: 12),
               Text(
-                Strings.of(context).writeTo(c.bot.displayName),
+                Strings.of(context).writeTo(c.hob.displayName),
                 style: theme.textTheme.titleMedium,
               ),
-              if (c.bot.description.isNotEmpty) ...[
+              if (c.hob.description.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(
-                  c.bot.description,
+                  c.hob.description,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -1028,7 +1028,7 @@ class _ClarifyCardState extends State<_ClarifyCard> {
                 children: [
                   const Icon(Icons.help_outline, size: 18),
                   const SizedBox(width: 8),
-                  Text(s.botAsks, style: theme.textTheme.titleSmall),
+                  Text(s.hobAsks, style: theme.textTheme.titleSmall),
                 ],
               ),
               for (final q in qs) ...[
