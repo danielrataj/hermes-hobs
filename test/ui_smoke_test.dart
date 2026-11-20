@@ -15,7 +15,7 @@ void main() {
         child: const MaterialApp(home: LoginScreen()),
       ),
     );
-    expect(find.text('Hobs'), findsOneWidget);
+    expect(find.text('Hermes Hobs'), findsOneWidget);
     expect(find.text('https://hermes.devrel.cz'), findsOneWidget);
     await tester.tap(find.text('Přihlásit'));
     await tester.pump();
