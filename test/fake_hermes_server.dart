@@ -17,6 +17,17 @@ class FakeHermesServer {
   bool canonical = false;
   final List<Map<String, dynamic>> calls = [];
 
+  /// Canonical: runtime session id -> profile whose owner holds the
+  /// subscription. A session verb routed elsewhere is a stranger.
+  final Map<String, String> _subscriptions = {};
+  static const _sessionVerbs = {
+    'prompt.submit',
+    'session.interrupt',
+    'session.mutate',
+    'approval.respond',
+    'clarify.respond',
+  };
+
   static const _canonicalParams = {
     'session.resume': {
       'profile',
@@ -265,6 +276,21 @@ class FakeHermesServer {
           return;
         }
       }
+      if (canonical && _sessionVerbs.contains(method)) {
+        // Frames route by `profile` (absent = the launch profile's owner).
+        final owner = params['profile'] ?? 'default';
+        if (_subscriptions[params['session_id']] != owner) {
+          send({
+            'id': id,
+            'error': {
+              'code': 4001,
+              'message': 'permission_denied',
+              'data': {'reason': 'permission_denied'},
+            },
+          });
+          return;
+        }
+      }
       switch (method) {
         case 'approval.respond':
           if (!approvalAnswer.isCompleted) {
@@ -309,6 +335,8 @@ class FakeHermesServer {
         case 'session.create':
           sessionCounter++;
           createParams.add(params);
+          _subscriptions['rt$sessionCounter'] =
+              (params['profile'] ?? 'default') as String;
           send({
             'id': id,
             'result': {
@@ -334,6 +362,8 @@ class FakeHermesServer {
         case 'session.resume':
           resumed.add(params['session_id'] as String);
           sessionCounter++;
+          _subscriptions['rt$sessionCounter'] =
+              (params['profile'] ?? 'default') as String;
           send({
             'id': id,
             'result': {

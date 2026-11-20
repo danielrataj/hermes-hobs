@@ -325,23 +325,37 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> _submit(String text) async {
-    await rpc.requestWith('prompt.submit', {
-      'session_id': _sessionId,
-      'text': text,
-      // The canonical owner admits identified input only.
-      if (rpc.canonical) 'submission_id': uuidV4(),
-    }, timeout: const Duration(minutes: 5));
+    await rpc.requestWith(
+      'prompt.submit',
+      _scoped({
+        'session_id': _sessionId,
+        'text': text,
+        // The canonical owner admits identified input only.
+        if (rpc.canonical) 'submission_id': uuidV4(),
+      }),
+      timeout: const Duration(minutes: 5),
+    );
   }
+
+  /// Canonical dialect: the gateway routes every frame by its `profile` to
+  /// that profile's owner, and the `session.resume` subscription lives there.
+  /// A session verb without it lands on the launch profile's owner, which
+  /// refuses the stranger (4001 `permission_denied`).
+  Map<String, dynamic> _scoped(Map<String, dynamic> params) =>
+      rpc.canonical ? {'profile': _bot.name, ...params} : params;
 
   Future<void> interrupt() async {
     final sid = _sessionId;
     if (sid == null) return;
     try {
-      await rpc.request('session.interrupt', {
-        'session_id': sid,
-        if (rpc.canonical && _generation != null)
-          'execution_generation': _generation,
-      });
+      await rpc.request(
+        'session.interrupt',
+        _scoped({
+          'session_id': sid,
+          if (rpc.canonical && _generation != null)
+            'execution_generation': _generation,
+        }),
+      );
     } catch (e) {
       error = 'Přerušení selhalo: $e';
       _notify();
@@ -360,14 +374,17 @@ class ChatController extends ChangeNotifier {
     try {
       if (rpc.canonical) {
         // Canonical: a revision-fenced `session.mutate` of the frozen policy.
-        final res = await rpc.request('session.mutate', {
-          'session_id': sid,
-          'request_id': uuidV4(),
-          'expected_revision': _revision ?? 0,
-          'operation': 'reasoning',
-          'payload': {'effort': level},
-          'expected_generation': ?_generation,
-        });
+        final res = await rpc.request(
+          'session.mutate',
+          _scoped({
+            'session_id': sid,
+            'request_id': uuidV4(),
+            'expected_revision': _revision ?? 0,
+            'operation': 'reasoning',
+            'payload': {'effort': level},
+            'expected_generation': ?_generation,
+          }),
+        );
         if (res is Map && res['revision'] is num) {
           _revision = (res['revision'] as num).toInt();
         }
@@ -397,12 +414,15 @@ class ChatController extends ChangeNotifier {
     final promptId = _approvalPromptId;
     if (promptId != null && _sessionId != null) {
       rpc
-          .request('approval.respond', {
-            'session_id': _sessionId,
-            'execution_generation': _approvalGeneration ?? _generation ?? 0,
-            'prompt_id': promptId,
-            'choice': choice,
-          })
+          .request(
+            'approval.respond',
+            _scoped({
+              'session_id': _sessionId,
+              'execution_generation': _approvalGeneration ?? _generation ?? 0,
+              'prompt_id': promptId,
+              'choice': choice,
+            }),
+          )
           .catchError((Object e) {
             error = 'Odpověď na schválení selhala: $e';
             _notify();
@@ -422,12 +442,15 @@ class ChatController extends ChangeNotifier {
       // answer skips it.
       for (final e in _clarifyPrompts.entries) {
         rpc
-            .request('clarify.respond', {
-              'session_id': _sessionId,
-              'execution_generation': e.value,
-              'prompt_id': e.key,
-              'answer': answers?[e.key] ?? '',
-            })
+            .request(
+              'clarify.respond',
+              _scoped({
+                'session_id': _sessionId,
+                'execution_generation': e.value,
+                'prompt_id': e.key,
+                'answer': answers?[e.key] ?? '',
+              }),
+            )
             .catchError((Object err) {
               error = 'Odpověď na dotaz selhala: $err';
               _notify();
