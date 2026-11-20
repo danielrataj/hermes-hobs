@@ -145,6 +145,23 @@ class StringsEn extends Strings {
   @override
   String get reasoning => 'Reasoning';
   @override
+  String get approvalModeTooltip =>
+      'Approval of dangerous commands (applies to the whole bot)';
+  @override
+  String approvalModeLabel(String mode) => switch (mode) {
+    'manual' => 'Manual',
+    'smart' => 'Smart',
+    'off' => 'Off',
+    _ => 'Approvals',
+  };
+  @override
+  String approvalModeHint(String mode) => switch (mode) {
+    'manual' => 'Asks before every dangerous command',
+    'smart' => 'Approves safe ones itself, asks only about risky ones',
+    'off' => 'Never asks, runs everything right away',
+    _ => mode,
+  };
+  @override
   String approvalTitle(String? tool) =>
       'The bot needs your approval${tool != null ? ' ($tool)' : ''}';
   @override
@@ -196,6 +213,9 @@ class StringsEn extends Strings {
   @override
   String reasoningChangeFailed(Object e) =>
       'Couldn\'t change the reasoning level: $e';
+  @override
+  String approvalModeChangeFailed(Object e) =>
+      'Couldn\'t change the approval mode: $e';
   @override
   String approvalAnswerFailed(Object e) => 'Couldn\'t send your approval: $e';
   @override

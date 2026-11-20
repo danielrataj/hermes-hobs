@@ -147,6 +147,23 @@ class StringsCs extends Strings {
   @override
   String get reasoning => 'Uvažování';
   @override
+  String get approvalModeTooltip =>
+      'Schvalování nebezpečných příkazů (platí pro celého bota)';
+  @override
+  String approvalModeLabel(String mode) => switch (mode) {
+    'manual' => 'Ručně',
+    'smart' => 'Chytře',
+    'off' => 'Bez ptaní',
+    _ => 'Schvalování',
+  };
+  @override
+  String approvalModeHint(String mode) => switch (mode) {
+    'manual' => 'Na každý nebezpečný příkaz se zeptá',
+    'smart' => 'Bezpečné schválí sám, ptá se jen u rizikových',
+    'off' => 'Nic neschvaluje, spouští vše hned',
+    _ => mode,
+  };
+  @override
   String approvalTitle(String? tool) =>
       'Bot žádá o schválení${tool != null ? ' ($tool)' : ''}';
   @override
@@ -197,6 +214,9 @@ class StringsCs extends Strings {
   @override
   String reasoningChangeFailed(Object e) =>
       'Změna úrovně uvažování selhala: $e';
+  @override
+  String approvalModeChangeFailed(Object e) =>
+      'Změna režimu schvalování selhala: $e';
   @override
   String approvalAnswerFailed(Object e) => 'Odpověď na schválení selhala: $e';
   @override

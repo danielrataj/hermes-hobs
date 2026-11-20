@@ -242,6 +242,17 @@ void main() {
     });
     expect(chat.reasoningEffort, 'low');
 
+    await waitFor(() => chat.approvalMode == 'manual');
+    await chat.setApprovalMode('smart');
+    expect(server.configSets.last, {
+      'profile': 'default',
+      'session_id': 'rt1',
+      'key': 'approvals.mode',
+      'value': 'smart',
+    });
+    expect(chat.approvalMode, 'smart');
+    expect(server.approvalMode, 'smart');
+
     chat.dispose();
     await rpc.dispose();
     http.close();

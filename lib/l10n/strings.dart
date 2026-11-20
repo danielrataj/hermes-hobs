@@ -113,6 +113,9 @@ abstract class Strings {
   String get modelTooltip;
   String get reasoningLevel;
   String get reasoning;
+  String get approvalModeTooltip;
+  String approvalModeLabel(String mode);
+  String approvalModeHint(String mode);
   String approvalTitle(String? tool);
   String get allowOnce;
   String get allowSession;
@@ -134,6 +137,7 @@ abstract class Strings {
   String get chatNotReady;
   String interruptFailed(Object e);
   String reasoningChangeFailed(Object e);
+  String approvalModeChangeFailed(Object e);
   String approvalAnswerFailed(Object e);
   String clarifyAnswerFailed(Object e);
   String preparingTool(String? tool);
