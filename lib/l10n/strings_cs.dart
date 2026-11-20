@@ -96,6 +96,23 @@ class StringsCs extends Strings {
   String get folderFallback => 'Složka';
   @override
   String get unassigned => 'Nezařazení';
+  @override
+  String get renameFolder => 'Přejmenovat';
+  @override
+  String get renameFolderTitle => 'Přejmenovat složku';
+  @override
+  String get folderNameLabel => 'Název složky';
+  @override
+  String get save => 'Uložit';
+  @override
+  String get cancel => 'Zrušit';
+  @override
+  String get renameFolderFailed =>
+      'Složku se nepodařilo přejmenovat. Zkuste to znovu.';
+  @override
+  String get folderOptions => 'Možnosti složky';
+  @override
+  String get moveFolder => 'Přesunout složku';
 
   // --- chat ----------------------------------------------------------------
   @override

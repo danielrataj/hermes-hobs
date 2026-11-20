@@ -252,38 +252,147 @@ class _BotListState extends State<_BotList> {
         ],
       );
     }
-    final showHeaders = app.hasFolders;
-    final children = <Widget>[];
-    for (final s in sections) {
-      final isCollapsed =
-          showHeaders && app.collapsed.contains(s.key) && app.query.isEmpty;
-      if (showHeaders) {
-        children.add(
-          _SectionHeader(
-            title: s.title,
-            count: s.bots.length,
-            collapsed: isCollapsed,
-            unread: s.bots.where(app.isUnread).length,
-            onTap: () => app.toggleSection(s.key),
-          ),
-        );
-      }
-      if (!isCollapsed) {
-        for (final b in s.bots) {
-          children.add(
-            _BotRow(
-              bot: b,
-              selected: b.name == widget.selected,
-              unread: app.isUnread(b),
-              working: app.isWorking(b),
-              onTap: () => widget.onOpen(b),
-            ),
-          );
-        }
-      }
+    if (!app.hasFolders) {
+      return ListView(
+        children: [
+          for (final b in sections.expand((s) => s.bots)) _botRow(app, b),
+          const SizedBox(height: 24),
+        ],
+      );
     }
-    children.add(const SizedBox(height: 24));
-    return ListView(children: children);
+    // Folders are the draggable items; "unassigned" always stays last.
+    final folders = [
+      for (final s in sections)
+        if (s.key != BotSection.unassignedKey) s,
+    ];
+    final rest = [
+      for (final s in sections)
+        if (s.key == BotSection.unassignedKey) s,
+    ];
+    return ReorderableListView.builder(
+      buildDefaultDragHandles: false,
+      itemCount: folders.length,
+      onReorderItem: (from, to) {
+        final others = [...folders]..removeAt(from);
+        app.moveSection(
+          folders[from].key,
+          before: to < others.length ? others[to].key : null,
+        );
+      },
+      proxyDecorator: (child, _, _) => Material(
+        elevation: 6,
+        color: theme.colorScheme.surface,
+        child: child,
+      ),
+      itemBuilder: (context, i) => KeyedSubtree(
+        key: ValueKey(folders[i].key),
+        child: _section(app, folders[i], dragIndex: i),
+      ),
+      footer: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final s in rest) _section(app, s),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _botRow(AppState app, Bot b) => _BotRow(
+    bot: b,
+    selected: b.name == widget.selected,
+    unread: app.isUnread(b),
+    working: app.isWorking(b),
+    onTap: () => widget.onOpen(b),
+  );
+
+  /// One folder: its header and, unless collapsed, its bots. [dragIndex] is
+  /// set for folders the user can drag to a new place and rename.
+  Widget _section(AppState app, BotSection s, {int? dragIndex}) {
+    final isCollapsed = app.collapsed.contains(s.key) && app.query.isEmpty;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SectionHeader(
+          title: s.title,
+          count: s.bots.length,
+          collapsed: isCollapsed,
+          unread: s.bots.where(app.isUnread).length,
+          onTap: () => app.toggleSection(s.key),
+          dragIndex: dragIndex,
+          onRename: dragIndex == null ? null : () => _renameSection(app, s),
+        ),
+        if (!isCollapsed)
+          for (final b in s.bots) _botRow(app, b),
+      ],
+    );
+  }
+
+  Future<void> _renameSection(AppState app, BotSection section) async {
+    final s = Strings.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => _RenameDialog(initial: section.title),
+    );
+    if (name == null || name.trim().isEmpty || name.trim() == section.title) {
+      return;
+    }
+    try {
+      await app.renameSection(section.key, name);
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(content: Text(s.renameFolderFailed)));
+    }
+  }
+}
+
+class _RenameDialog extends StatefulWidget {
+  const _RenameDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late final _name = TextEditingController(text: widget.initial)
+    ..selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: widget.initial.length,
+    );
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = Strings.of(context);
+    return AlertDialog(
+      title: Text(s.renameFolderTitle),
+      content: TextField(
+        controller: _name,
+        autofocus: true,
+        maxLength: 60,
+        textCapitalization: TextCapitalization.sentences,
+        textInputAction: TextInputAction.done,
+        decoration: InputDecoration(labelText: s.folderNameLabel),
+        onSubmitted: (v) => Navigator.pop(context, v),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(s.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _name.text),
+          child: Text(s.save),
+        ),
+      ],
+    );
   }
 }
 
@@ -294,6 +403,8 @@ class _SectionHeader extends StatelessWidget {
     required this.collapsed,
     required this.unread,
     required this.onTap,
+    this.dragIndex,
+    this.onRename,
   });
 
   final String title;
@@ -301,6 +412,10 @@ class _SectionHeader extends StatelessWidget {
   final bool collapsed;
   final int unread;
   final VoidCallback onTap;
+
+  /// Position among the draggable folders; null for a fixed header.
+  final int? dragIndex;
+  final VoidCallback? onRename;
 
   @override
   Widget build(BuildContext context) {
@@ -310,23 +425,21 @@ class _SectionHeader extends StatelessWidget {
       letterSpacing: 0.8,
       fontWeight: FontWeight.w600,
     );
-    return InkWell(
+    final s = Strings.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final label = InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 14, 16, 6),
+        padding: EdgeInsets.fromLTRB(12, 14, dragIndex == null ? 16 : 4, 6),
         child: Row(
           children: [
             Icon(
               collapsed ? Icons.chevron_right : Icons.expand_more,
               size: 18,
-              color: theme.colorScheme.onSurfaceVariant,
+              color: muted,
             ),
             const SizedBox(width: 4),
-            Icon(
-              Icons.folder_outlined,
-              size: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            Icon(Icons.folder_outlined, size: 16, color: muted),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -347,6 +460,48 @@ class _SectionHeader extends StatelessWidget {
           ],
         ),
       ),
+    );
+    final index = dragIndex;
+    if (index == null) return label;
+    return Row(
+      children: [
+        // Holding the header picks the folder up, for touch screens.
+        Expanded(
+          child: ReorderableDelayedDragStartListener(
+            index: index,
+            child: label,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: SizedBox(
+            width: 32,
+            height: 24,
+            child: PopupMenuButton<void>(
+              tooltip: s.folderOptions,
+              padding: EdgeInsets.zero,
+              iconSize: 18,
+              icon: Icon(Icons.more_horiz, color: muted),
+              itemBuilder: (_) => [
+                PopupMenuItem(onTap: onRename, child: Text(s.renameFolder)),
+              ],
+            ),
+          ),
+        ),
+        ReorderableDragStartListener(
+          index: index,
+          child: Tooltip(
+            message: s.moveFolder,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.grab,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(2, 8, 10, 0),
+                child: Icon(Icons.drag_handle, size: 18, color: muted),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

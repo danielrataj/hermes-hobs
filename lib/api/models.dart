@@ -63,6 +63,8 @@ class Bot {
     this.canonical,
     this.lastSession,
     this.workerActiveAt,
+    this.meta = const {},
+    this.metaRevision,
   });
 
   final String name;
@@ -85,6 +87,15 @@ class Bot {
   /// Heartbeat of the newest background worker (cron/kanban) session.
   final DateTime? workerActiveAt;
 
+  /// Raw `ui_meta['hermes-bots']`. A write replaces the whole block, so edits
+  /// send this map back with the changed keys.
+  final Map<String, dynamic> meta;
+
+  /// `ui_meta_revisions['hermes-bots']`: compare-and-swap guard for writes.
+  /// Null when the server did not send revisions.
+  final int? metaRevision;
+
+  static const metaKey = 'hermes-bots';
   static const canonicalTitle = 'Bot Chat';
 
   factory Bot.fromJson(Map<String, dynamic> j) {
@@ -102,6 +113,8 @@ class Bot {
     ].firstWhere((s) => s.isNotEmpty, orElse: () => name);
     final worker = j['worker_session'];
     final model = str(j['model']);
+    final revisions = j['ui_meta_revisions'];
+    final revision = revisions is Map ? revisions[metaKey] : null;
     return Bot(
       name: name,
       displayName: display,
@@ -122,6 +135,8 @@ class Bot {
       canonical: SessionSummary.fromJson(j['canonical_session']),
       lastSession: SessionSummary.fromJson(j['last_session']),
       workerActiveAt: worker is Map ? epochToDate(worker['last_active']) : null,
+      meta: meta,
+      metaRevision: revision is int ? revision : null,
     );
   }
 

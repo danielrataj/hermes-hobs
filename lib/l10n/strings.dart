@@ -90,6 +90,14 @@ abstract class Strings {
   String get disconnected;
   String get folderFallback;
   String get unassigned;
+  String get renameFolder;
+  String get renameFolderTitle;
+  String get folderNameLabel;
+  String get save;
+  String get cancel;
+  String get renameFolderFailed;
+  String get folderOptions;
+  String get moveFolder;
 
   // --- chat ----------------------------------------------------------------
   String get scheduledJobs;

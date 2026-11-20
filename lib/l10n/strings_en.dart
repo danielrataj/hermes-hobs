@@ -98,6 +98,22 @@ class StringsEn extends Strings {
   String get folderFallback => 'Folder';
   @override
   String get unassigned => 'Unsorted';
+  @override
+  String get renameFolder => 'Rename';
+  @override
+  String get renameFolderTitle => 'Rename folder';
+  @override
+  String get folderNameLabel => 'Folder name';
+  @override
+  String get save => 'Save';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get renameFolderFailed => 'Could not rename the folder. Try again.';
+  @override
+  String get folderOptions => 'Folder options';
+  @override
+  String get moveFolder => 'Move folder';
 
   // --- chat ----------------------------------------------------------------
   @override
