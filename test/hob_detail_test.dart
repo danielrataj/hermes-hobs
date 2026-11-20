@@ -20,31 +20,47 @@ void main() {
   group('screen', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
-    Future<AppState> pumpList(WidgetTester tester) async {
-      final app = AppState()
-        ..hobs = [
-          Hob(
-            name: 'dev-cto',
-            displayName: 'CTO',
-            description: 'Vede vývoj',
-            shape: 'circle',
-            color: '#F0997B',
-            meta: const {'title': 'CTO', 'shape': 'circle'},
-          ),
-        ];
+    final cto = Hob(
+      name: 'dev-cto',
+      displayName: 'CTO',
+      description: 'Vede vývoj',
+      shape: 'circle',
+      color: '#F0997B',
+      meta: const {'title': 'CTO', 'shape': 'circle'},
+    );
+
+    /// Opens the profile on top of a page, the way the chat header does.
+    Future<void> openProfile(WidgetTester tester) async {
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
-          value: app,
+          value: AppState()..hobs = [cto],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => HobDetailScreen.open(context, cto),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the list opens the chat, never the profile', (tester) async {
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: AppState()..hobs = [cto],
           child: const MaterialApp(home: HobsScreen()),
         ),
       );
-      return app;
-    }
+      expect(find.byType(HobAvatar), findsOneWidget);
+      expect(find.byTooltip('Upravit profil: CTO'), findsNothing);
+    });
 
-    testWidgets('the avatar in the list opens the profile', (tester) async {
-      await pumpList(tester);
-      await tester.tap(find.byTooltip('Upravit profil: CTO'));
-      await tester.pumpAndSettle();
+    testWidgets('the profile shows what the roster knows', (tester) async {
+      await openProfile(tester);
 
       expect(find.byType(HobDetailScreen), findsOneWidget);
       expect(find.text('Profil Hobíka'), findsOneWidget);
@@ -66,9 +82,7 @@ void main() {
     });
 
     testWidgets('save wakes up on an edit, leaving asks first', (tester) async {
-      await pumpList(tester);
-      await tester.tap(find.byTooltip('Upravit profil: CTO'));
-      await tester.pumpAndSettle();
+      await openProfile(tester);
       FilledButton save() =>
           tester.widget(find.widgetWithText(FilledButton, 'Uložit'));
       expect(save().onPressed, isNull);
