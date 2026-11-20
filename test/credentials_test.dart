@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hobs/api/hermes_rpc.dart';
+import 'package:hobs/l10n/strings.dart';
 import 'package:hobs/state/app_state.dart';
 import 'package:hobs/state/credentials_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -175,7 +176,7 @@ void main() {
     final app = AppState(store: store);
     await app.init();
     expect(app.phase, AuthPhase.signedOut);
-    expect(app.authError, contains('heslo'));
+    expect(app.authError, Strings.current.savedPasswordExpired);
     expect(await store.password(), isNull);
     app.dispose();
   });

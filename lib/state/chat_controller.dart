@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../api/hermes_rpc.dart';
 import '../api/models.dart';
+import '../l10n/strings.dart';
 
 enum ChatPhase { starting, idle, running, failed }
 
@@ -116,7 +117,7 @@ class ChatController extends ChangeNotifier {
       await _createCanonical();
     } catch (e) {
       phase = ChatPhase.failed;
-      error = 'Nepodařilo se otevřít konverzaci: $e';
+      error = Strings.current.openChatFailed(e);
       _notify();
     }
   }
@@ -247,7 +248,7 @@ class ChatController extends ChangeNotifier {
       await _resume(stored);
       if (wasRunning && phase != ChatPhase.running) onTurnSettled?.call(_bot);
     } catch (e) {
-      error = 'Obnovení po výpadku spojení selhalo: $e';
+      error = Strings.current.recoverFailed(e);
       _notify();
     }
   }
@@ -296,7 +297,7 @@ class ChatController extends ChangeNotifier {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     if (_sessionId == null) {
-      error = 'Konverzace není připravená.';
+      error = Strings.current.chatNotReady;
       _notify();
       return;
     }
@@ -357,7 +358,7 @@ class ChatController extends ChangeNotifier {
         }),
       );
     } catch (e) {
-      error = 'Přerušení selhalo: $e';
+      error = Strings.current.interruptFailed(e);
       _notify();
     }
   }
@@ -398,7 +399,7 @@ class ChatController extends ChangeNotifier {
       }
     } catch (e) {
       reasoningEffort = previous;
-      error = 'Změna úrovně uvažování selhala: $e';
+      error = Strings.current.reasoningChangeFailed(e);
       _notify();
     }
   }
@@ -424,7 +425,7 @@ class ChatController extends ChangeNotifier {
             }),
           )
           .catchError((Object e) {
-            error = 'Odpověď na schválení selhala: $e';
+            error = Strings.current.approvalAnswerFailed(e);
             _notify();
             return null;
           });
@@ -452,7 +453,7 @@ class ChatController extends ChangeNotifier {
               }),
             )
             .catchError((Object err) {
-              error = 'Odpověď na dotaz selhala: $err';
+              error = Strings.current.clarifyAnswerFailed(err);
               _notify();
               return null;
             });
@@ -643,7 +644,7 @@ class ChatController extends ChangeNotifier {
           messages.add(ChatMessage(role: ChatRole.assistant, text: t));
         }
       case 'tool.generating':
-        statusText = 'Připravuje ${p['name'] ?? 'nástroj'}…';
+        statusText = Strings.current.preparingTool(p['name']?.toString());
       case 'tool.start':
         final row = _activityRow();
         row.tools.add(
@@ -692,7 +693,7 @@ class ChatController extends ChangeNotifier {
         _approvalRequest = null;
         approval = null;
       case 'error':
-        final msg = p['message']?.toString() ?? 'Neznámá chyba';
+        final msg = p['message']?.toString() ?? Strings.current.unknownError;
         messages.add(ChatMessage(role: ChatRole.error, text: msg));
         if (phase == ChatPhase.running) _finishTurn();
       case 'notice':
@@ -737,13 +738,18 @@ class ChatController extends ChangeNotifier {
       if (target != null) {
         target.interrupted = true;
       } else {
-        messages.add(ChatMessage(role: ChatRole.notice, text: 'Přerušeno'));
+        messages.add(
+          ChatMessage(
+            role: ChatRole.notice,
+            text: Strings.current.interruptedNotice,
+          ),
+        );
       }
     } else if (status == 'error') {
       final err = p['error'];
       final msg = err is Map
           ? (err['message'] ?? err.toString())
-          : (err ?? 'Odpověď skončila chybou');
+          : (err ?? Strings.current.replyFailed);
       messages.add(ChatMessage(role: ChatRole.error, text: msg.toString()));
     }
     final w = p['warning'];

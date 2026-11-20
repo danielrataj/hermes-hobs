@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/strings.dart';
 import '../state/app_state.dart';
 import 'splash_screen.dart';
 
@@ -61,6 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final s = Strings.of(context);
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -87,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Přihlášení k Hermes Agent dashboardu',
+                      s.loginSubtitle,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -96,9 +98,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 28),
                     TextFormField(
                       controller: _server,
-                      decoration: const InputDecoration(
-                        labelText: 'Server',
-                        prefixIcon: Icon(Icons.dns_outlined),
+                      decoration: InputDecoration(
+                        labelText: s.serverLabel,
+                        prefixIcon: const Icon(Icons.dns_outlined),
                       ),
                       keyboardType: TextInputType.url,
                       autocorrect: false,
@@ -107,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (u == null ||
                             !(u.scheme == 'https' || u.scheme == 'http') ||
                             u.host.isEmpty) {
-                          return 'Zadej URL, např. https://hermes.devrel.cz';
+                          return s.serverInvalid;
                         }
                         return null;
                       },
@@ -115,26 +117,27 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _user,
-                      decoration: const InputDecoration(
-                        labelText: 'Uživatel',
-                        prefixIcon: Icon(Icons.person_outline),
+                      decoration: InputDecoration(
+                        labelText: s.usernameLabel,
+                        prefixIcon: const Icon(Icons.person_outline),
                       ),
                       autocorrect: false,
                       autofillHints: const [AutofillHints.username],
                       validator: (v) =>
-                          (v ?? '').trim().isEmpty ? 'Povinné' : null,
+                          (v ?? '').trim().isEmpty ? s.fieldRequired : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _pass,
-                      decoration: const InputDecoration(
-                        labelText: 'Heslo',
-                        prefixIcon: Icon(Icons.lock_outline),
+                      decoration: InputDecoration(
+                        labelText: s.passwordLabel,
+                        prefixIcon: const Icon(Icons.lock_outline),
                       ),
                       obscureText: true,
                       autofillHints: const [AutofillHints.password],
                       onFieldSubmitted: (_) => _submit(),
-                      validator: (v) => (v ?? '').isEmpty ? 'Povinné' : null,
+                      validator: (v) =>
+                          (v ?? '').isEmpty ? s.fieldRequired : null,
                     ),
                     const SizedBox(height: 4),
                     CheckboxListTile(
@@ -142,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       onChanged: _busy
                           ? null
                           : (v) => setState(() => _remember = v ?? true),
-                      title: const Text('Zapamatovat heslo'),
+                      title: Text(s.rememberPassword),
                       controlAffinity: ListTileControlAffinity.leading,
                       contentPadding: EdgeInsets.zero,
                       dense: true,
@@ -163,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Přihlásit'),
+                          : Text(s.signIn),
                     ),
                   ],
                 ),
