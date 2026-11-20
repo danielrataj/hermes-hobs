@@ -6,7 +6,6 @@ import '../api/models.dart';
 import '../l10n/strings.dart';
 import '../state/app_state.dart';
 import 'hob_avatar.dart';
-import 'hob_detail_screen.dart';
 import 'chat_screen.dart';
 import 'format.dart';
 import 'settings_screen.dart';
@@ -305,7 +304,6 @@ class _HobListState extends State<_HobList> {
     unread: app.isUnread(b),
     working: app.isWorking(b),
     onTap: () => widget.onOpen(b),
-    onAvatarTap: () => HobDetailScreen.open(context, b),
   );
 
   /// One folder: its header and, unless collapsed, its hobs. [dragIndex] is
@@ -515,7 +513,6 @@ class _HobRow extends StatelessWidget {
     required this.unread,
     required this.working,
     required this.onTap,
-    required this.onAvatarTap,
   });
 
   final Hob hob;
@@ -523,9 +520,6 @@ class _HobRow extends StatelessWidget {
   final bool unread;
   final bool working;
   final VoidCallback onTap;
-
-  /// The avatar opens the hob's profile; the rest of the row opens the chat.
-  final VoidCallback onAvatarTap;
 
   @override
   Widget build(BuildContext context) {
@@ -542,21 +536,11 @@ class _HobRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(11, 4, 16, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           child: Row(
             children: [
-              Tooltip(
-                message: s.editHob(hob.displayName),
-                child: InkResponse(
-                  onTap: onAvatarTap,
-                  radius: 26,
-                  child: Padding(
-                    padding: const EdgeInsets.all(5),
-                    child: HobAvatar(hob: hob, size: 38, working: working),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 7),
+              HobAvatar(hob: hob, size: 38, working: working),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
