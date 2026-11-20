@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermes_bots/api/models.dart';
-import 'package:hermes_bots/state/app_state.dart';
-import 'package:hermes_bots/ui/bot_avatar.dart';
-import 'package:hermes_bots/ui/format.dart';
-import 'package:hermes_bots/ui/login_screen.dart';
+import 'package:hobs/api/models.dart';
+import 'package:hobs/state/app_state.dart';
+import 'package:hobs/ui/bot_avatar.dart';
+import 'package:hobs/ui/format.dart';
+import 'package:hobs/ui/login_screen.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -15,7 +15,7 @@ void main() {
         child: const MaterialApp(home: LoginScreen()),
       ),
     );
-    expect(find.text('Hermes Bots'), findsOneWidget);
+    expect(find.text('Hobs'), findsOneWidget);
     expect(find.text('https://hermes.devrel.cz'), findsOneWidget);
     await tester.tap(find.text('Přihlásit'));
     await tester.pump();

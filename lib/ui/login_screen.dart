@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Hermes Bots',
+                      'Hobs',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineSmall,
                     ),

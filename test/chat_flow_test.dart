@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermes_bots/api/hermes_http.dart';
-import 'package:hermes_bots/api/hermes_rpc.dart';
-import 'package:hermes_bots/api/models.dart';
-import 'package:hermes_bots/state/app_state.dart';
-import 'package:hermes_bots/state/chat_controller.dart';
+import 'package:hobs/api/hermes_http.dart';
+import 'package:hobs/api/hermes_rpc.dart';
+import 'package:hobs/api/models.dart';
+import 'package:hobs/state/app_state.dart';
+import 'package:hobs/state/chat_controller.dart';
 
 import 'fake_hermes_server.dart';
 

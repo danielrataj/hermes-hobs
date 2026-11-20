@@ -10,19 +10,19 @@ void main() {
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppState()..init(),
-      child: const HermesBotsApp(),
+      child: const HobsApp(),
     ),
   );
 }
 
-class HermesBotsApp extends StatefulWidget {
-  const HermesBotsApp({super.key});
+class HobsApp extends StatefulWidget {
+  const HobsApp({super.key});
 
   @override
-  State<HermesBotsApp> createState() => _HermesBotsAppState();
+  State<HobsApp> createState() => _HobsAppState();
 }
 
-class _HermesBotsAppState extends State<HermesBotsApp>
+class _HobsAppState extends State<HobsApp>
     with WidgetsBindingObserver {
   @override
   void initState() {
@@ -49,7 +49,7 @@ class _HermesBotsAppState extends State<HermesBotsApp>
   Widget build(BuildContext context) {
     final phase = context.select<AppState, AuthPhase>((s) => s.phase);
     return MaterialApp(
-      title: 'Hermes Bots',
+      title: 'Hobs',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.light),
       darkTheme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.dark),

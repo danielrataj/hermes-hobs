@@ -1,4 +1,4 @@
-package cz.devrel.hermes_bots
+package cz.devrel.hobs
 
 import io.flutter.embedding.android.FlutterActivity
 
