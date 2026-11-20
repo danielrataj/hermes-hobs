@@ -1,4 +1,4 @@
-# Hobs
+# Hermes Hobs
 
 Flutter client (iOS, Android, macOS) for working with your personal bots on a Hermes Agent
 dashboard (default `https://hermes.devrel.cz`). In Hermes, each **profile** is a bot.

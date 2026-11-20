@@ -48,7 +48,7 @@ class _HobsAppState extends State<HobsApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final phase = context.select<AppState, AuthPhase>((s) => s.phase);
     return MaterialApp(
-      title: 'Hobs',
+      title: 'Hermes Hobs',
       debugShowCheckedModeBanner: false,
       theme: HobsTheme.lightTheme(),
       darkTheme: HobsTheme.darkTheme(),
