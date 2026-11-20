@@ -99,6 +99,35 @@ abstract class Strings {
   String get folderOptions;
   String get moveFolder;
 
+  // --- bot profile ---------------------------------------------------------
+  String get botProfile;
+  String editBot(String bot);
+  String get appearance;
+  String get shapeLabel;
+  String get colorLabel;
+  String get byName;
+  String get autoLabel;
+  String get botTitleLabel;
+  String get botDescriptionLabel;
+  String get botDescriptionHint;
+  String get modelSection;
+  String get providerLabel;
+  String get modelLabel;
+  String get inheritModel;
+  String get modelRequired;
+  String get soulSection;
+  String get soulHint;
+  String get setupLoadFailed;
+  String get confirmModelTitle;
+  String get confirmModelFallback;
+  String get switchModel;
+  String botSaved(String bot);
+  String botSaveFailed(String reason);
+  String get botSaveRefused;
+  String get discardChangesTitle;
+  String get discardChanges;
+  String get keepEditing;
+
   // --- chat ----------------------------------------------------------------
   String get scheduledJobs;
   String get connectionLost;

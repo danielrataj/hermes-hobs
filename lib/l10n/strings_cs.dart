@@ -114,6 +114,63 @@ class StringsCs extends Strings {
   @override
   String get moveFolder => 'Přesunout složku';
 
+  // --- bot profile ---------------------------------------------------------
+  @override
+  String get botProfile => 'Profil bota';
+  @override
+  String editBot(String bot) => 'Upravit profil: $bot';
+  @override
+  String get appearance => 'Vzhled';
+  @override
+  String get shapeLabel => 'Tvar';
+  @override
+  String get colorLabel => 'Barva';
+  @override
+  String get byName => 'Podle jména';
+  @override
+  String get autoLabel => 'Auto';
+  @override
+  String get botTitleLabel => 'Název';
+  @override
+  String get botDescriptionLabel => 'Popis';
+  @override
+  String get botDescriptionHint => 'S čím má bot pomáhat?';
+  @override
+  String get modelSection => 'Model';
+  @override
+  String get providerLabel => 'Poskytovatel';
+  @override
+  String get modelLabel => 'Model';
+  @override
+  String get inheritModel => 'Zdědit z výchozího profilu';
+  @override
+  String get modelRequired => 'Vyplňte poskytovatele i model.';
+  @override
+  String get soulSection => 'SOUL.md';
+  @override
+  String get soulHint => 'Persona a trvalé pokyny bota';
+  @override
+  String get setupLoadFailed =>
+      'Model a SOUL.md se nepodařilo načíst. Zbytek profilu upravit lze.';
+  @override
+  String get confirmModelTitle => 'Přepnout model?';
+  @override
+  String get confirmModelFallback => 'Server žádá potvrzení změny modelu.';
+  @override
+  String get switchModel => 'Přepnout';
+  @override
+  String botSaved(String bot) => 'Profil $bot je uložený';
+  @override
+  String botSaveFailed(String reason) => 'Uložení se nepovedlo: $reason';
+  @override
+  String get botSaveRefused => 'Server změnu odmítl. Zkuste to znovu.';
+  @override
+  String get discardChangesTitle => 'Zahodit neuložené změny?';
+  @override
+  String get discardChanges => 'Zahodit';
+  @override
+  String get keepEditing => 'Pokračovat';
+
   // --- chat ----------------------------------------------------------------
   @override
   String get scheduledJobs => 'Naplánované úlohy';

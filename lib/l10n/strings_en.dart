@@ -115,6 +115,64 @@ class StringsEn extends Strings {
   @override
   String get moveFolder => 'Move folder';
 
+  // --- bot profile ---------------------------------------------------------
+  @override
+  String get botProfile => 'Bot profile';
+  @override
+  String editBot(String bot) => 'Edit profile: $bot';
+  @override
+  String get appearance => 'Appearance';
+  @override
+  String get shapeLabel => 'Shape';
+  @override
+  String get colorLabel => 'Color';
+  @override
+  String get byName => 'From the name';
+  @override
+  String get autoLabel => 'Auto';
+  @override
+  String get botTitleLabel => 'Title';
+  @override
+  String get botDescriptionLabel => 'Description';
+  @override
+  String get botDescriptionHint => 'What should this bot help with?';
+  @override
+  String get modelSection => 'Model';
+  @override
+  String get providerLabel => 'Provider';
+  @override
+  String get modelLabel => 'Model';
+  @override
+  String get inheritModel => 'Inherit from the default profile';
+  @override
+  String get modelRequired => 'Fill in both the provider and the model.';
+  @override
+  String get soulSection => 'SOUL.md';
+  @override
+  String get soulHint => 'The bot\'s persona and standing instructions';
+  @override
+  String get setupLoadFailed =>
+      'Could not load the model and SOUL.md. The rest of the profile can be edited.';
+  @override
+  String get confirmModelTitle => 'Switch the model?';
+  @override
+  String get confirmModelFallback =>
+      'The server asks you to confirm the model change.';
+  @override
+  String get switchModel => 'Switch';
+  @override
+  String botSaved(String bot) => '$bot profile saved';
+  @override
+  String botSaveFailed(String reason) => 'Could not save: $reason';
+  @override
+  String get botSaveRefused => 'The server refused the change. Try again.';
+  @override
+  String get discardChangesTitle => 'Discard unsaved changes?';
+  @override
+  String get discardChanges => 'Discard';
+  @override
+  String get keepEditing => 'Keep editing';
+
   // --- chat ----------------------------------------------------------------
   @override
   String get scheduledJobs => 'Scheduled jobs';

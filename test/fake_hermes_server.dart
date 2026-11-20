@@ -90,6 +90,20 @@ class FakeHermesServer {
   final List<Map<String, dynamic>> configSets = [];
   final List<Map<String, dynamic>> configures = [];
 
+  final List<List<String>> cliCalls = [];
+
+  /// What `profiles.describe` reports as the profile's model.
+  Map<String, dynamic> profileModel = {
+    'provider': 'nous',
+    'default': 'hermes-4',
+  };
+
+  /// The profile's SOUL.md, as `profiles.describe` reports it.
+  String profileSoul = '# CTO\n\nVede vývoj.\n';
+
+  /// Switching to this model needs `confirm_expensive_model`.
+  String expensiveModel = 'hermes-4-pro';
+
   /// Profile-wide `approvals.mode` served by `config.get`.
   String approvalMode = 'manual';
 
@@ -337,6 +351,39 @@ class FakeHermesServer {
           final revisions = Map<String, dynamic>.from(
             (row['ui_meta_revisions'] ?? const {}) as Map,
           );
+          if (params['soul'] != null) {
+            profileSoul = params['soul'] as String;
+            send({
+              'id': id,
+              'result': {
+                'ok': true,
+                'applied': {'soul': true},
+              },
+            });
+            return;
+          }
+          if (params['ui_meta'] == null) {
+            // A model switch; an expensive model wants a confirmation first.
+            final ask =
+                params['model'] == expensiveModel &&
+                params['confirm_expensive_model'] != true;
+            if (!ask) {
+              profileModel = {
+                'provider': params['provider'],
+                'default': params['model'],
+              };
+            }
+            send({
+              'id': id,
+              'result': ask
+                  ? {'confirm_required': true, 'confirm_message': 'Pricey.'}
+                  : {
+                      'ok': true,
+                      'applied': {'model': true},
+                    },
+            });
+            return;
+          }
           final expected = params['ui_meta_expected_revisions'] as Map?;
           final incoming = params['ui_meta'] as Map;
           final stale = incoming.keys.any(
@@ -359,6 +406,49 @@ class FakeHermesServer {
               'ok': !stale,
               'applied': {'ui_meta': !stale},
             },
+          });
+        case 'profiles.describe':
+          send({
+            'id': id,
+            'result': {
+              'name': params['name'],
+              'model': profileModel,
+              'soul': profileSoul,
+            },
+          });
+        case 'model.options':
+          send({
+            'id': id,
+            'result': {
+              'providers': [
+                {
+                  'slug': 'nous',
+                  'name': 'Nous',
+                  'models': ['hermes-4', 'hermes-4-pro'],
+                },
+                {
+                  'slug': 'openai-codex',
+                  'name': 'Codex',
+                  'models': [
+                    {'id': 'gpt-6.2-sol'},
+                  ],
+                },
+              ],
+            },
+          });
+        case 'cli.exec':
+          cliCalls.add(List<String>.from(params['argv'] as List));
+          final argv = cliCalls.last;
+          if (argv.length == 5 && argv[1] == 'describe') {
+            roster.firstWhere((r) => r['name'] == argv[2])['description'] =
+                argv[4];
+          }
+          if (argv.contains('unset')) {
+            profileModel = {'provider': '', 'default': ''};
+          }
+          send({
+            'id': id,
+            'result': {'code': 0, 'stdout': ''},
           });
         case 'profiles.list':
           send({

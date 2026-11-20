@@ -9,6 +9,7 @@ import '../l10n/strings.dart';
 import '../state/app_state.dart';
 import '../state/chat_controller.dart';
 import 'bot_avatar.dart';
+import 'bot_detail_screen.dart';
 import 'cron_sheet.dart';
 import 'format.dart';
 import 'pull_up_reload.dart';
@@ -106,7 +107,14 @@ class _ChatViewState extends State<ChatView> {
         titleSpacing: widget.embedded ? 16 : 0,
         title: Row(
           children: [
-            BotAvatar(bot: c.bot, size: 30, working: working),
+            Tooltip(
+              message: s.editBot(c.bot.displayName),
+              child: InkResponse(
+                onTap: () => BotDetailScreen.open(context, c.bot),
+                radius: 24,
+                child: BotAvatar(bot: c.bot, size: 30, working: working),
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
