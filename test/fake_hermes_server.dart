@@ -11,6 +11,68 @@ class FakeHermesServer {
   String? lastWsOrigin;
   bool capabilitiesAnnounced = false;
   int sessionCounter = 0;
+
+  /// Speak the canonical session-authority dialect (gateway Webapp): strict
+  /// params, prompts as events, generation-fenced controls.
+  bool canonical = false;
+  final List<Map<String, dynamic>> calls = [];
+
+  static const _canonicalParams = {
+    'session.resume': {
+      'profile',
+      'session_id',
+      'title',
+      'latest',
+      'workspace',
+      'source',
+      'editor',
+      'api_key',
+      'defer_history',
+      'omit_messages',
+      'cols',
+      'display_projection',
+    },
+    'session.create': {
+      'profile',
+      'request_id',
+      'source',
+      'cwd',
+      'model',
+      'provider',
+      'toolsets',
+      'reasoning',
+      'title',
+      'hidden',
+      'follow_profile_config',
+      'service_tier',
+      'cwd_explicit',
+    },
+    'prompt.submit': {
+      'profile',
+      'session_id',
+      'text',
+      'submission_id',
+      'input_id',
+      'queued',
+    },
+    'session.interrupt': {'profile', 'session_id', 'execution_generation'},
+    'approval.respond': {
+      'profile',
+      'session_id',
+      'execution_generation',
+      'prompt_id',
+      'choice',
+    },
+    'session.mutate': {
+      'profile',
+      'session_id',
+      'request_id',
+      'expected_revision',
+      'operation',
+      'payload',
+      'expected_generation',
+    },
+  };
   final List<Map<String, dynamic>> createParams = [];
   final List<String> titled = [];
   final List<String> resumed = [];
@@ -159,7 +221,10 @@ class FakeHermesServer {
       'method': 'event',
       'params': {
         'type': 'gateway.ready',
-        'payload': {'heartbeat': true},
+        'payload': {
+          'heartbeat': true,
+          'session_authority': ?(canonical ? true : null),
+        },
       },
     });
 
@@ -178,7 +243,51 @@ class FakeHermesServer {
         }
         return;
       }
+      calls.add({'method': method, 'params': params});
+      final allowed = canonical ? _canonicalParams[method] : null;
+      if (allowed != null) {
+        final bad = params.keys.where((k) => !allowed.contains(k)).toList();
+        final missing = switch (method) {
+          'prompt.submit' => params['submission_id'] == null,
+          'session.interrupt' ||
+          'approval.respond' => params['execution_generation'] == null,
+          _ => false,
+        };
+        if (bad.isNotEmpty || missing) {
+          send({
+            'id': id,
+            'error': {
+              'code': 4001,
+              'message': 'invalid_params',
+              'data': {'reason': 'invalid_params', 'fields': bad},
+            },
+          });
+          return;
+        }
+      }
       switch (method) {
+        case 'approval.respond':
+          if (!approvalAnswer.isCompleted) {
+            approvalAnswer.complete({'choice': params['choice']});
+          }
+          send({
+            'id': id,
+            'result': {'status': 'resolved', 'prompt_id': params['prompt_id']},
+          });
+        case 'session.interrupt':
+          send({
+            'id': id,
+            'result': {'status': 'interrupted'},
+          });
+        case 'session.mutate':
+          send({
+            'id': id,
+            'result': {
+              'session_id': params['session_id'],
+              'operation': params['operation'],
+              'revision': 2,
+            },
+          });
         case 'client.capabilities':
           capabilitiesAnnounced = params['server_requests'] == true;
           send({
@@ -207,6 +316,8 @@ class FakeHermesServer {
               'stored_session_id': 'st$sessionCounter',
               'message_count': 0,
               'messages': [],
+              'execution_generation': ?(canonical ? 1 : null),
+              'revision': ?(canonical ? 1 : null),
               'info': {
                 'model': 'hermes-4',
                 'reasoning_effort': 'medium',
@@ -230,6 +341,12 @@ class FakeHermesServer {
               'stored_session_id': params['session_id'],
               'running': false,
               'messages': history,
+              'display_messages':
+                  ?(canonical && params['display_projection'] == true
+                  ? history
+                  : null),
+              'execution_generation': ?(canonical ? 3 : null),
+              'revision': ?(canonical ? 1 : null),
               'info': {'model': 'hermes-4', 'reasoning_effort': 'high'},
             },
           });
@@ -268,7 +385,25 @@ class FakeHermesServer {
             'result': {'status': 'streaming'},
           });
           event('message.start', sid);
-          if (askApproval) {
+          if (askApproval && canonical) {
+            send({
+              'method': 'event',
+              'params': {
+                'type': 'approval.request',
+                'session_id': sid,
+                'execution_generation': 4,
+                'payload': {
+                  'prompt_id': 'p-approval',
+                  'kind': 'approval',
+                  'command': 'ls /',
+                  'description': 'list root',
+                  'choices': ['once', 'deny'],
+                },
+              },
+            });
+            await approvalAnswer.future;
+            event('approval.settled', sid, {'prompt_id': 'p-approval'});
+          } else if (askApproval) {
             send({
               'id': 'srq-approval',
               'method': 'approval',

@@ -301,4 +301,128 @@ void main() {
     await rpc.dispose();
     http.close();
   });
+
+  group('canonical dialect (gateway Webapp)', () {
+    setUp(() => server.canonical = true);
+
+    test('resume uses only canonical params and display rows', () async {
+      final http = await signedIn();
+      final rpc = HermesRpc(http);
+      final cto = (await roster(rpc)).first;
+      expect(rpc.canonical, isTrue);
+      final chat = ChatController(rpc: rpc, bot: cto);
+
+      await chat.start();
+      expect(chat.error, isNull);
+      expect(chat.phase, ChatPhase.idle);
+      final resume = server.calls.firstWhere(
+        (c) => c['method'] == 'session.resume',
+      );
+      expect(resume['params'], {
+        'session_id': 'botchat-tip',
+        'profile': 'cto',
+        'display_projection': true,
+      });
+      expect(chat.messages.map((m) => m.role), [
+        ChatRole.user,
+        ChatRole.activity,
+        ChatRole.assistant,
+      ]);
+      expect(
+        server.createParams,
+        isEmpty,
+        reason: 'must not mint a new Bot Chat',
+      );
+
+      chat.dispose();
+      await rpc.dispose();
+      http.close();
+    });
+
+    test('first chat creates Bot Chat with canonical params', () async {
+      final http = await signedIn();
+      final rpc = HermesRpc(http);
+      final plain = (await roster(rpc))[1];
+      final chat = ChatController(rpc: rpc, bot: plain);
+
+      await chat.start();
+      expect(chat.error, isNull);
+      final p = server.createParams.single;
+      expect(p.keys.toSet(), {
+        'profile',
+        'title',
+        'hidden',
+        'follow_profile_config',
+        'request_id',
+        'source',
+      });
+      expect(p['title'], 'Bot Chat');
+      expect(
+        server.titled,
+        isEmpty,
+        reason: 'canonical create records the title',
+      );
+
+      chat.dispose();
+      await rpc.dispose();
+      http.close();
+    });
+
+    test(
+      'submit, approval event, interrupt and reasoning are fenced',
+      () async {
+        server.askApproval = true;
+        final http = await signedIn();
+        final rpc = HermesRpc(http);
+        final chat = ChatController(
+          rpc: rpc,
+          bot: Bot(name: 'default', displayName: 'Hermes'),
+        );
+        await chat.start();
+
+        unawaited(chat.send('do it'));
+        await waitFor(() => chat.approval != null);
+        final submit = server.calls.firstWhere(
+          (c) => c['method'] == 'prompt.submit',
+        );
+        expect((submit['params'] as Map)['submission_id'], isA<String>());
+        expect(chat.approval!.command, 'ls /');
+
+        chat.answerApproval('once');
+        expect(await server.approvalAnswer.future, {'choice': 'once'});
+        final respond = server.calls.firstWhere(
+          (c) => c['method'] == 'approval.respond',
+        );
+        expect(respond['params'], {
+          'session_id': 'rt1',
+          'execution_generation': 4,
+          'prompt_id': 'p-approval',
+          'choice': 'once',
+        });
+        await waitFor(() => chat.phase == ChatPhase.idle);
+        expect(chat.messages.last.text, 'Ahoj, svete!');
+
+        await chat.interrupt();
+        final intr = server.calls.lastWhere(
+          (c) => c['method'] == 'session.interrupt',
+        );
+        expect(intr['params'], {
+          'session_id': 'rt1',
+          'execution_generation': 4,
+        });
+
+        await chat.setReasoningEffort('high');
+        final mutate = server.calls.lastWhere(
+          (c) => c['method'] == 'session.mutate',
+        );
+        expect((mutate['params'] as Map)['operation'], 'reasoning');
+        expect((mutate['params'] as Map)['payload'], {'effort': 'high'});
+        expect(chat.error, isNull);
+
+        chat.dispose();
+        await rpc.dispose();
+        http.close();
+      },
+    );
+  });
 }

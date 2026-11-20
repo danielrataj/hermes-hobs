@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'hermes_http.dart';
 
@@ -12,8 +13,19 @@ class RpcException implements Exception {
   final String message;
   final Object? data;
 
+  /// Malformed request (unknown / missing params). The canonical dialect
+  /// reports it as 4001 `invalid_params`, so it must not read as "gone".
+  bool get isInvalidParams =>
+      code == 4000 || message == 'invalid_params' || code == -32602;
+
   /// Runtime session no longer exists (resume it with the stored id).
-  bool get isSessionGone => code == 4001;
+  bool get isSessionGone =>
+      !isInvalidParams &&
+      (code == 4001 || message.toLowerCase().contains('session not found'));
+
+  /// The stored session itself is gone (deleted / archived).
+  bool get isNotFound =>
+      !isInvalidParams && message.toLowerCase().contains('not found');
 
   @override
   String toString() => 'RPC $code: $message';
@@ -21,12 +33,32 @@ class RpcException implements Exception {
 
 /// One `{"method":"event"}` notification from the gateway.
 class GatewayEvent {
-  GatewayEvent(this.type, this.sessionId, this.payload, this.seq);
+  GatewayEvent(
+    this.type,
+    this.sessionId,
+    this.payload,
+    this.seq, {
+    this.generation,
+  });
 
   final String type;
   final String? sessionId;
   final Map<String, dynamic> payload;
   final int? seq;
+
+  /// Canonical dialect: the turn's `execution_generation` (fences controls).
+  final int? generation;
+}
+
+/// Random RFC 4122 v4 id (submission / request ids for the canonical dialect).
+String uuidV4() {
+  final r = Random.secure();
+  final b = List<int>.generate(16, (_) => r.nextInt(256));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+  return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-'
+      '${h.substring(16, 20)}-${h.substring(20)}';
 }
 
 /// A request the server sends to the client (`approval`, `clarify`, ...).
@@ -104,6 +136,12 @@ class HermesRpc {
   int _attempt = 0;
   bool _closedByUser = false;
   bool _everConnected = false;
+
+  /// True when `gateway.ready` advertised `session_authority`: the server
+  /// speaks the canonical `hermes-gateway-v1` session dialect (the gateway
+  /// Webapp), whose session verbs take different params than the legacy
+  /// TUI dispatcher.
+  bool canonical = false;
 
   /// Called when the session expired and re-login is needed.
   void Function()? onUnauthorized;
@@ -275,15 +313,21 @@ class HermesRpc {
     final type = params['type']?.toString() ?? '';
     final payload = params['payload'];
     if (type == 'gateway.ready') {
+      canonical = payload is Map && payload['session_authority'] == true;
       _afterReady();
       return;
     }
+    final p = payload is Map<String, dynamic> ? payload : <String, dynamic>{};
     _events.add(
       GatewayEvent(
         type,
         params['session_id'] as String?,
-        payload is Map<String, dynamic> ? payload : <String, dynamic>{},
+        p,
         (params['seq'] as num?)?.toInt(),
+        generation:
+            ((params['execution_generation'] ?? p['execution_generation'])
+                    as num?)
+                ?.toInt(),
       ),
     );
   }

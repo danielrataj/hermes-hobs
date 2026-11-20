@@ -61,6 +61,15 @@ class ChatController extends ChangeNotifier {
   ServerRequest? _clarifyRequest;
   List<ClarifyQuestion>? clarify;
 
+  // Canonical dialect (session authority) bookkeeping: controls and prompt
+  // answers are fenced by the turn's execution generation, edits by the
+  // session revision; approval/clarify arrive as `*.request` events.
+  int? _generation;
+  int? _revision;
+  String? _approvalPromptId;
+  int? _approvalGeneration;
+  final Map<String, int> _clarifyPrompts = {}; // prompt_id -> generation
+
   Bot get bot => _bot;
   ConnectionStatus get connection => rpc.status;
   bool get busy => phase == ChatPhase.running;
@@ -99,12 +108,9 @@ class ChatController extends ChangeNotifier {
           await _resume(stored);
           return;
         } on RpcException catch (e) {
-          // The canonical row vanished (archived, deleted): mint a new one.
-          if (e.code != 4001 &&
-              e.code != 4004 &&
-              !e.message.toLowerCase().contains('not found')) {
-            rethrow;
-          }
+          // Only a vanished row (archived, deleted) mints a new Bot Chat;
+          // anything else (bad params, server error) must surface.
+          if (!e.isNotFound) rethrow;
         }
       }
       await _createCanonical();
@@ -116,21 +122,46 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> _resume(String storedId) async {
-    final res = await rpc.requestWith('session.resume', {
-      'session_id': storedId,
-      'profile': _bot.name,
-      'close_on_disconnect': false,
-      'inline_images': false,
-    }, timeout: const Duration(seconds: 90)) as Map;
+    final params = rpc.canonical
+        // The canonical resume contract has no close_on_disconnect /
+        // inline_images; display_projection returns display rows (text,
+        // tool name + context) instead of raw model messages.
+        ? {
+            'session_id': storedId,
+            'profile': _bot.name,
+            'display_projection': true,
+          }
+        : {
+            'session_id': storedId,
+            'profile': _bot.name,
+            'close_on_disconnect': false,
+            'inline_images': false,
+          };
+    final res = await rpc.requestWith(
+      'session.resume',
+      params,
+      timeout: const Duration(seconds: 90),
+    ) as Map;
     _sessionId = res['session_id'] as String?;
     _storedId = (res['stored_session_id'] as String?) ?? storedId;
-    _applyInfo(res['info']);
+    _adoptSnapshot(res);
     messages
       ..clear()
-      ..addAll(historyToMessages(res['messages']));
+      ..addAll(historyToMessages(res['display_messages'] ?? res['messages']));
     _current = null;
     final running = res['running'] == true || res['inflight'] == true;
     phase = running ? ChatPhase.running : ChatPhase.idle;
+    _clearPrompts();
+    final prompts = res['prompts'];
+    if (prompts is List) {
+      for (final pr in prompts.whereType<Map>()) {
+        _onCanonicalPrompt(
+          '${pr['kind']}.request',
+          Map<String, dynamic>.from(pr),
+          (pr['execution_generation'] as num?)?.toInt(),
+        );
+      }
+    }
     final pending = res['open_requests'];
     if (pending is List) {
       for (final r in pending.whereType<Map>()) {
@@ -155,18 +186,33 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> _createCanonical() async {
-    final res = await rpc.requestWith('session.create', {
-      'profile': _bot.name,
-      'title': Bot.canonicalTitle,
-      'hidden': true,
-      'follow_profile_config': true,
-      'close_on_disconnect': false,
-    }, timeout: const Duration(seconds: 90)) as Map;
+    final res = await rpc.requestWith(
+      'session.create',
+      rpc.canonical
+          ? {
+              'profile': _bot.name,
+              'title': Bot.canonicalTitle,
+              'hidden': true,
+              'follow_profile_config': true,
+              'request_id': uuidV4(),
+              'source': 'gui',
+            }
+          : {
+              'profile': _bot.name,
+              'title': Bot.canonicalTitle,
+              'hidden': true,
+              'follow_profile_config': true,
+              'close_on_disconnect': false,
+            },
+      timeout: const Duration(seconds: 90),
+    ) as Map;
     final runtime = res['session_id'] as String?;
     _sessionId = runtime;
     _storedId = (res['stored_session_id'] as String?) ?? runtime;
-    _applyInfo(res['info']);
-    if (runtime != null) {
+    _adoptSnapshot(res);
+    // The canonical owner records the create's title itself; the legacy
+    // dispatcher defers it, so claim it explicitly there.
+    if (runtime != null && !rpc.canonical) {
       try {
         // Materialize the row and claim the canonical title right away, so a
         // second open (here or in the dashboard) finds it instead of minting
@@ -282,6 +328,8 @@ class ChatController extends ChangeNotifier {
     await rpc.requestWith('prompt.submit', {
       'session_id': _sessionId,
       'text': text,
+      // The canonical owner admits identified input only.
+      if (rpc.canonical) 'submission_id': uuidV4(),
     }, timeout: const Duration(minutes: 5));
   }
 
@@ -289,7 +337,11 @@ class ChatController extends ChangeNotifier {
     final sid = _sessionId;
     if (sid == null) return;
     try {
-      await rpc.request('session.interrupt', {'session_id': sid});
+      await rpc.request('session.interrupt', {
+        'session_id': sid,
+        if (rpc.canonical && _generation != null)
+          'execution_generation': _generation,
+      });
     } catch (e) {
       error = 'Přerušení selhalo: $e';
       _notify();
@@ -306,12 +358,27 @@ class ChatController extends ChangeNotifier {
     reasoningEffort = level;
     _notify();
     try {
-      await rpc.request('config.set', {
-        'session_id': sid,
-        'key': 'reasoning',
-        'value': level,
-        'scope': 'session',
-      });
+      if (rpc.canonical) {
+        // Canonical: a revision-fenced `session.mutate` of the frozen policy.
+        final res = await rpc.request('session.mutate', {
+          'session_id': sid,
+          'request_id': uuidV4(),
+          'expected_revision': _revision ?? 0,
+          'operation': 'reasoning',
+          'payload': {'effort': level},
+          'expected_generation': ?_generation,
+        });
+        if (res is Map && res['revision'] is num) {
+          _revision = (res['revision'] as num).toInt();
+        }
+      } else {
+        await rpc.request('config.set', {
+          'session_id': sid,
+          'key': 'reasoning',
+          'value': level,
+          'scope': 'session',
+        });
+      }
     } catch (e) {
       reasoningEffort = previous;
       error = 'Změna úrovně uvažování selhala: $e';
@@ -327,13 +394,48 @@ class ChatController extends ChangeNotifier {
   // --- approvals / clarify -------------------------------------------------
 
   void answerApproval(String choice) {
+    final promptId = _approvalPromptId;
+    if (promptId != null && _sessionId != null) {
+      rpc
+          .request('approval.respond', {
+            'session_id': _sessionId,
+            'execution_generation': _approvalGeneration ?? _generation ?? 0,
+            'prompt_id': promptId,
+            'choice': choice,
+          })
+          .catchError((Object e) {
+            error = 'Odpověď na schválení selhala: $e';
+            _notify();
+            return null;
+          });
+    }
     _approvalRequest?.respond({'choice': choice});
     _approvalRequest = null;
+    _approvalPromptId = null;
     approval = null;
     _notify();
   }
 
   void answerClarify(Map<String, String?>? answers) {
+    if (_clarifyPrompts.isNotEmpty && _sessionId != null) {
+      // Canonical: one `clarify.respond` per question prompt; an empty
+      // answer skips it.
+      for (final e in _clarifyPrompts.entries) {
+        rpc
+            .request('clarify.respond', {
+              'session_id': _sessionId,
+              'execution_generation': e.value,
+              'prompt_id': e.key,
+              'answer': answers?[e.key] ?? '',
+            })
+            .catchError((Object err) {
+              error = 'Odpověď na dotaz selhala: $err';
+              _notify();
+              return null;
+            });
+      }
+      _clarifyPrompts.clear();
+    }
     final req = _clarifyRequest;
     if (req != null) {
       req.respond(
@@ -347,9 +449,67 @@ class ChatController extends ChangeNotifier {
 
   void _clearPrompts() {
     _approvalRequest = null;
+    _approvalPromptId = null;
     approval = null;
     _clarifyRequest = null;
+    _clarifyPrompts.clear();
     clarify = null;
+  }
+
+  /// Snapshot fields of `session.resume` / `session.create` results.
+  void _adoptSnapshot(Map res) {
+    _applyInfo(res['info']);
+    final g = res['execution_generation'];
+    if (g is num) _generation = g.toInt();
+    final r = res['revision'];
+    if (r is num) _revision = r.toInt();
+  }
+
+  /// Canonical `approval.request` / `clarify.request` (live event or a
+  /// snapshot's pending prompt).
+  void _onCanonicalPrompt(
+    String type,
+    Map<String, dynamic> p,
+    int? generation,
+  ) {
+    final promptId = p['prompt_id']?.toString();
+    if (promptId == null) return;
+    final gen = generation ?? _generation ?? 0;
+    final choices =
+        (p['choices'] as List?)?.map((e) => e.toString()).toList() ?? const [];
+    if (type == 'approval.request') {
+      _approvalPromptId = promptId;
+      _approvalGeneration = gen;
+      approval = PendingApproval(
+        command: p['command']?.toString() ?? '',
+        description: p['description']?.toString() ?? '',
+        choices: choices.isEmpty ? const ['once', 'deny'] : choices,
+        toolName: p['tool_name']?.toString(),
+      );
+    } else if (type == 'clarify.request') {
+      _clarifyPrompts[promptId] = gen;
+      final list = [...?clarify]..removeWhere((q) => q.qid == promptId);
+      list.add(
+        ClarifyQuestion(
+          qid: promptId,
+          question: p['question']?.toString() ?? '',
+          choices: choices.isEmpty ? null : choices,
+          multiSelect: p['multi_select'] == true,
+        ),
+      );
+      clarify = list;
+    }
+  }
+
+  void _onPromptSettled(String promptId) {
+    if (_approvalPromptId == promptId) {
+      _approvalPromptId = null;
+      approval = null;
+    }
+    if (_clarifyPrompts.remove(promptId) != null) {
+      final list = [...?clarify]..removeWhere((q) => q.qid == promptId);
+      clarify = list.isEmpty ? null : list;
+    }
   }
 
   void _onServerRequest(ServerRequest req) {
@@ -416,7 +576,21 @@ class ChatController extends ChangeNotifier {
   void _onEvent(GatewayEvent ev) {
     if (ev.sessionId == null || ev.sessionId != _sessionId) return;
     final p = ev.payload;
+    final gen = ev.generation;
+    if (gen != null) {
+      // Generation fence: a frame from an older turn is stale.
+      if (_generation != null && gen < _generation!) return;
+      _generation = gen;
+    }
+    if (ev.type == 'session.info' && p['revision'] is num) {
+      _revision = (p['revision'] as num).toInt();
+    }
     switch (ev.type) {
+      case 'approval.request' || 'clarify.request':
+        _onCanonicalPrompt(ev.type, p, gen);
+      case 'approval.settled' || 'clarify.settled':
+        final id = p['prompt_id']?.toString();
+        if (id != null) _onPromptSettled(id);
       case 'message.start':
         phase = ChatPhase.running;
       case 'message.delta':
