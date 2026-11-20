@@ -89,6 +89,9 @@ class FakeHermesServer {
   final List<String> resumed = [];
   final List<Map<String, dynamic>> configSets = [];
 
+  /// Profile-wide `approvals.mode` served by `config.get`.
+  String approvalMode = 'manual';
+
   /// Rows returned by `profiles.list` (RPC) and `/api/profiles` (REST).
   List<Map<String, dynamic>> roster = [
     {
@@ -380,8 +383,18 @@ class FakeHermesServer {
               'info': {'model': 'hermes-4', 'reasoning_effort': 'high'},
             },
           });
+        case 'config.get':
+          send({
+            'id': id,
+            'result': {
+              'value': params['key'] == 'approvals.mode' ? approvalMode : null,
+            },
+          });
         case 'config.set':
           configSets.add(params);
+          if (params['key'] == 'approvals.mode') {
+            approvalMode = params['value'] as String;
+          }
           send({
             'id': id,
             'result': {'key': params['key'], 'value': params['value']},

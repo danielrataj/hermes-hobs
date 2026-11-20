@@ -50,6 +50,9 @@ class ChatController extends ChangeNotifier {
   String? model;
   String? reasoningEffort;
 
+  /// Profile-wide `approvals.mode` (manual / smart / off). Null until known.
+  String? approvalMode;
+
   String? _sessionId; // runtime id, valid for this socket
   String? _storedId; // durable id, survives reconnects
   ChatMessage? _current; // assistant row being streamed
@@ -404,6 +407,49 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  static const approvalModes = ['manual', 'smart', 'off'];
+
+  /// Persistent `approvals.mode` of this bot's profile, the same setting as
+  /// the dashboard's approval mode. It applies to every session of the bot,
+  /// not only this chat, so it is sent with the profile, not as a session
+  /// mutation.
+  Future<void> setApprovalMode(String mode) async {
+    final previous = approvalMode;
+    approvalMode = mode;
+    _notify();
+    try {
+      final res = await rpc.request('config.set', {
+        'profile': _bot.name,
+        'session_id': ?_sessionId,
+        'key': 'approvals.mode',
+        'value': mode,
+      });
+      final v = res is Map ? res['value'] : null;
+      if (v is String && approvalModes.contains(v)) approvalMode = v;
+      _notify();
+    } catch (e) {
+      approvalMode = previous;
+      error = Strings.current.approvalModeChangeFailed(e);
+      _notify();
+    }
+  }
+
+  /// Reads the current mode when the session snapshot did not carry it
+  /// (canonical sessions report only `yolo`). Failure keeps the chip blank.
+  Future<void> _loadApprovalMode() async {
+    try {
+      final res = await rpc.request('config.get', {
+        'profile': _bot.name,
+        'key': 'approvals.mode',
+      });
+      final v = res is Map ? res['value'] : null;
+      if (v is String && approvalModes.contains(v)) {
+        approvalMode = v;
+        _notify();
+      }
+    } catch (_) {}
+  }
+
   void toggleActivity(ChatMessage m) {
     m.expanded = !m.expanded;
     _notify();
@@ -487,6 +533,7 @@ class ChatController extends ChangeNotifier {
     if (g is num) _generation = g.toInt();
     final r = res['revision'];
     if (r is num) _revision = r.toInt();
+    if (approvalMode == null) unawaited(_loadApprovalMode());
   }
 
   /// Canonical `approval.request` / `clarify.request` (live event or a
@@ -790,6 +837,8 @@ class ChatController extends ChangeNotifier {
     if (m is String && m.isNotEmpty) model = m;
     final r = info['reasoning_effort'];
     if (r is String && r.isNotEmpty) reasoningEffort = r;
+    final a = info['approval_mode'];
+    if (a is String && approvalModes.contains(a)) approvalMode = a;
   }
 
   void _notify() {

@@ -677,6 +677,12 @@ class _Composer extends StatelessWidget {
     'xhigh': 'Max',
   };
 
+  static const _approvalIcons = {
+    'manual': Icons.front_hand_outlined,
+    'smart': Icons.auto_awesome_outlined,
+    'off': Icons.bolt,
+  };
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -800,6 +806,65 @@ class _Composer extends StatelessWidget {
                         Text(
                           _effortLabels[chat.reasoningEffort] ??
                               (chat.reasoningEffort ?? s.reasoning),
+                          style: chipStyle,
+                        ),
+                        Icon(
+                          Icons.arrow_drop_down,
+                          size: 16,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                PopupMenuButton<String>(
+                  key: const ValueKey('approval-mode'),
+                  enabled: chat.ready,
+                  tooltip: s.approvalModeTooltip,
+                  initialValue: chat.approvalMode,
+                  onSelected: chat.setApprovalMode,
+                  itemBuilder: (_) => [
+                    for (final m in ChatController.approvalModes)
+                      PopupMenuItem(
+                        value: m,
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          leading: Icon(_approvalIcons[m]),
+                          title: Text(s.approvalModeLabel(m)),
+                          subtitle: Text(s.approvalModeHint(m)),
+                        ),
+                      ),
+                  ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        // "off" runs commands unasked: make it visible.
+                        color: chat.approvalMode == 'off'
+                            ? cs.error
+                            : cs.outlineVariant,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _approvalIcons[chat.approvalMode] ??
+                              Icons.shield_outlined,
+                          size: 14,
+                          color: chat.approvalMode == 'off'
+                              ? cs.error
+                              : cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          s.approvalModeLabel(chat.approvalMode ?? ''),
                           style: chipStyle,
                         ),
                         Icon(
