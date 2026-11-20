@@ -394,6 +394,7 @@ void main() {
           (c) => c['method'] == 'approval.respond',
         );
         expect(respond['params'], {
+          'profile': 'default',
           'session_id': 'rt1',
           'execution_generation': 4,
           'prompt_id': 'p-approval',
@@ -407,6 +408,7 @@ void main() {
           (c) => c['method'] == 'session.interrupt',
         );
         expect(intr['params'], {
+          'profile': 'default',
           'session_id': 'rt1',
           'execution_generation': 4,
         });
@@ -418,6 +420,38 @@ void main() {
         expect((mutate['params'] as Map)['operation'], 'reasoning');
         expect((mutate['params'] as Map)['payload'], {'effort': 'high'});
         expect(chat.error, isNull);
+
+        chat.dispose();
+        await rpc.dispose();
+        http.close();
+      },
+    );
+
+    test(
+      'a named profile\'s turn is routed to that profile\'s owner',
+      () async {
+        // Regression: session verbs without `profile` reached the launch
+        // profile's owner, which holds no subscription for the session and
+        // answered 4001 `permission_denied`.
+        final http = await signedIn();
+        final rpc = HermesRpc(http);
+        final cto = (await roster(rpc)).first;
+        final chat = ChatController(rpc: rpc, bot: cto);
+        await chat.start();
+
+        await chat.send('ahoj');
+        await waitFor(() => chat.phase == ChatPhase.idle);
+        expect(chat.messages.where((m) => m.role == ChatRole.error), isEmpty);
+        expect(chat.messages.last.text, 'Ahoj, svete!');
+        final submit = server.calls.lastWhere(
+          (c) => c['method'] == 'prompt.submit',
+        );
+        expect((submit['params'] as Map)['profile'], 'cto');
+
+        await chat.interrupt();
+        await chat.setReasoningEffort('low');
+        expect(chat.error, isNull);
+        expect(chat.reasoningEffort, 'low');
 
         chat.dispose();
         await rpc.dispose();
