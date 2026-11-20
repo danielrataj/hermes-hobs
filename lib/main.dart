@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+import 'l10n/strings.dart';
 import 'state/app_state.dart';
 import 'ui/bots_screen.dart';
 import 'ui/login_screen.dart';
@@ -8,7 +11,10 @@ import 'ui/splash_screen.dart';
 import 'ui/theme.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
+  final binding = WidgetsFlutterBinding.ensureInitialized();
+  Strings.current = Strings.forLocale(
+    Strings.resolve(binding.platformDispatcher.locales),
+  );
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppState()..init(),
@@ -47,9 +53,18 @@ class _HobsAppState extends State<HobsApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final phase = context.select<AppState, AuthPhase>((s) => s.phase);
+    final language = context.select<AppState, String?>((s) => s.languageCode);
     return MaterialApp(
       title: 'Hermes Hobs',
       debugShowCheckedModeBanner: false,
+      // No explicit locale: follow the device's preferred languages.
+      locale: language == null ? null : Locale(language),
+      supportedLocales: Strings.supportedLocales,
+      localizationsDelegates: const [
+        Strings.delegate,
+        ...GlobalMaterialLocalizations.delegates,
+      ],
+      localeListResolutionCallback: (locales, _) => Strings.resolve(locales),
       theme: HobsTheme.lightTheme(),
       darkTheme: HobsTheme.darkTheme(),
       home: switch (phase) {

@@ -1,0 +1,188 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+
+import 'strings_cs.dart';
+import 'strings_en.dart';
+
+/// Every user-facing text of the app. One subclass per language pack:
+/// [StringsCs] and [StringsEn].
+///
+/// Widgets read the pack with [Strings.of] so they rebuild when the language
+/// changes. Code without a [BuildContext] (state, formatting) reads
+/// [Strings.current].
+abstract class Strings {
+  const Strings();
+
+  /// The active pack. Kept in sync by [delegate] and by the language setting.
+  static Strings current = const StringsCs();
+
+  static Strings of(BuildContext context) =>
+      Localizations.of<Strings>(context, Strings) ?? current;
+
+  static const supportedLocales = [Locale('cs'), Locale('en')];
+
+  static const LocalizationsDelegate<Strings> delegate = _StringsDelegate();
+
+  static Strings forLocale(Locale locale) =>
+      locale.languageCode == 'cs' ? const StringsCs() : const StringsEn();
+
+  /// Picks the app language for the device's preferred languages: the first
+  /// one we have a pack for wins. Slovak readers get Czech; everyone else
+  /// without a pack gets English.
+  static Locale resolve(List<Locale>? preferred) {
+    for (final l in preferred ?? const <Locale>[]) {
+      switch (l.languageCode) {
+        case 'cs' || 'sk':
+          return const Locale('cs');
+        case 'en':
+          return const Locale('en');
+      }
+    }
+    return const Locale('en');
+  }
+
+  /// Language code of this pack ("cs", "en").
+  String get code;
+
+  // --- login ---------------------------------------------------------------
+  String get loginSubtitle;
+  String get serverLabel;
+  String get serverInvalid;
+  String get usernameLabel;
+  String get passwordLabel;
+  String get fieldRequired;
+  String get rememberPassword;
+  String get signIn;
+  String get savedPasswordExpired;
+
+  // --- errors --------------------------------------------------------------
+  String get errorBadCredentials;
+  String get errorNoPasswordLogin;
+  String get errorTooManyAttempts;
+  String get errorServerDown;
+  String errorServer(String message);
+  String errorUnreachable(String message);
+  String errorTls(String message);
+  String get errorTimeout;
+  String get errorBadServerUrl;
+  String get errorNoSessionCookie;
+
+  // --- bot list ------------------------------------------------------------
+  String get botsTitle;
+  String get pickBot;
+  String get filterAll;
+  String get filterUnread;
+  String get filterPinned;
+  String get filterActive;
+  String get filterRecent;
+  String get filterOlder;
+  String unreadCount(int n);
+  String get noUnread;
+  String get settings;
+  String get signOut;
+  String get searchBots;
+  String get retry;
+  String get noBots;
+  String get noMatches;
+  String get working;
+  String get noMessagesYet;
+  String get connected;
+  String get connecting;
+  String get disconnected;
+  String get folderFallback;
+  String get unassigned;
+
+  // --- chat ----------------------------------------------------------------
+  String get scheduledJobs;
+  String get connectionLost;
+  String get reconnectNow;
+  String newMessages(int n);
+  String get jumpToEnd;
+  String get tryAgain;
+  String get openingChat;
+  String workingOn(String? status);
+  String get workingInBackground;
+  String activeAgo(String age);
+  String writeTo(String bot);
+  String get interruptedTag;
+  String get copy;
+  String get copied;
+  String get thinking;
+  String get messageHint;
+  String get stop;
+  String get send;
+  String get modelTooltip;
+  String get reasoningLevel;
+  String get reasoning;
+  String approvalTitle(String? tool);
+  String get allowOnce;
+  String get allowSession;
+  String get allowAlways;
+  String get deny;
+  String get botAsks;
+  String get orOwnAnswer;
+  String get answerHint;
+  String get skip;
+  String get answer;
+
+  /// Short label of a tool family in the activity line, or null to show the
+  /// tool's own name.
+  String? toolLabel(String tool);
+
+  // --- chat state ----------------------------------------------------------
+  String openChatFailed(Object e);
+  String recoverFailed(Object e);
+  String get chatNotReady;
+  String interruptFailed(Object e);
+  String reasoningChangeFailed(Object e);
+  String approvalAnswerFailed(Object e);
+  String clarifyAnswerFailed(Object e);
+  String preparingTool(String? tool);
+  String get unknownError;
+  String get interruptedNotice;
+  String get replyFailed;
+
+  // --- scheduled jobs ------------------------------------------------------
+  String get refresh;
+  String jobsLoadFailed(Object? e);
+  String get noJobs;
+  String nextRun(String when);
+  String get paused;
+  String lastRun(String when);
+  String get failedTag;
+  String get jobFallback;
+
+  // --- settings ------------------------------------------------------------
+  String get language;
+  String get languageSystem;
+  String languageSystemNow(String name);
+
+  /// This pack's language, written in that language.
+  String get languageName;
+
+  // --- dates ---------------------------------------------------------------
+  String get now;
+  String get today;
+  String get tomorrow;
+  String get yesterday;
+  String shortDate(DateTime t);
+}
+
+class _StringsDelegate extends LocalizationsDelegate<Strings> {
+  const _StringsDelegate();
+
+  @override
+  bool isSupported(Locale locale) => Strings.supportedLocales.any(
+    (l) => l.languageCode == locale.languageCode,
+  );
+
+  @override
+  Future<Strings> load(Locale locale) {
+    final strings = Strings.forLocale(locale);
+    Strings.current = strings;
+    return SynchronousFuture(strings);
+  }
+
+  @override
+  bool shouldReload(_StringsDelegate old) => false;
+}

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../api/hermes_http.dart';
 import '../api/hermes_rpc.dart';
 import '../api/models.dart';
+import '../l10n/strings.dart';
 import 'chat_controller.dart';
 import 'credentials_store.dart';
 
@@ -48,6 +50,11 @@ class AppState extends ChangeNotifier {
 
   String? get savedPassword => _password;
 
+  /// Language picked in settings ("cs", "en"); null follows the device.
+  String? languageCode;
+
+  static const _languageKey = 'language';
+
   HermesHttp? _http;
   HermesRpc? _rpc;
   StreamSubscription<ConnectionStatus>? _statusSub;
@@ -72,6 +79,7 @@ class AppState extends ChangeNotifier {
       _rpc?.status ?? ConnectionStatus.disconnected;
 
   Future<void> init() async {
+    await _loadLanguage();
     serverUrl = await _store.serverUrl();
     username = await _store.username();
     _password = await _store.password();
@@ -117,7 +125,7 @@ class AppState extends ChangeNotifier {
       if (e is HermesHttpException && e.isUnauthorized) {
         _password = null;
         await _store.savePassword(null);
-        authError = 'Uložené heslo už neplatí, přihlas se znovu.';
+        authError = Strings.current.savedPasswordExpired;
       } else {
         authError = describeError(e);
       }
@@ -185,7 +193,7 @@ class AppState extends ChangeNotifier {
         'next': '',
       });
       if (!_http!.hasSession) {
-        throw HermesHttpException(500, 'Server nevrátil session cookie');
+        throw HermesHttpException(500, Strings.current.errorNoSessionCookie);
       }
     } catch (e) {
       await _teardown(clearCookies: true);
@@ -366,8 +374,8 @@ class AppState extends ChangeNotifier {
           ? 'section:${b.sectionId}'
           : BotSection.unassignedKey;
       final title = b.sectionId != null
-          ? (b.sectionName ?? 'Složka')
-          : 'Nezařazení';
+          ? (b.sectionName ?? Strings.current.folderFallback)
+          : Strings.current.unassigned;
       byKey
           .putIfAbsent(key, () => BotSection(key: key, title: title, bots: []))
           .bots
@@ -471,6 +479,40 @@ class AppState extends ChangeNotifier {
     if (phase == AuthPhase.signedIn) unawaited(refreshBots(silent: true));
   }
 
+  // --- language ------------------------------------------------------------
+
+  Future<void> _loadLanguage() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      _applyLanguage(p.getString(_languageKey));
+    } catch (_) {}
+  }
+
+  /// Switches the app language; null goes back to following the device.
+  Future<void> setLanguage(String? code) async {
+    if (code == languageCode) return;
+    _applyLanguage(code);
+    notifyListeners();
+    try {
+      final p = await SharedPreferences.getInstance();
+      if (code == null) {
+        await p.remove(_languageKey);
+      } else {
+        await p.setString(_languageKey, code);
+      }
+    } catch (_) {}
+  }
+
+  void _applyLanguage(String? code) {
+    final known = Strings.supportedLocales.any((l) => l.languageCode == code);
+    languageCode = known ? code : null;
+    Strings.current = Strings.forLocale(
+      languageCode != null
+          ? Locale(languageCode!)
+          : Strings.resolve(PlatformDispatcher.instance.locales),
+    );
+  }
+
   // --- local persistence ---------------------------------------------------
 
   String get _localKey => 'local::$serverUrl::$username';
@@ -505,23 +547,24 @@ class AppState extends ChangeNotifier {
   }
 
   static String describeError(Object e) {
+    final s = Strings.current;
     if (e is HermesHttpException) {
       switch (e.statusCode) {
         case 401:
-          return 'Neplatné jméno nebo heslo.';
+          return s.errorBadCredentials;
         case 404:
-          return 'Server nepodporuje přihlášení heslem (provider "basic").';
+          return s.errorNoPasswordLogin;
         case 429:
-          return 'Příliš mnoho pokusů, chvíli počkej.';
+          return s.errorTooManyAttempts;
         case 503:
-          return 'Server je nedostupný (503).';
+          return s.errorServerDown;
       }
-      return 'Chyba serveru: ${e.message}';
+      return s.errorServer(e.message);
     }
-    if (e is SocketException) return 'Server nedostupný: ${e.message}';
-    if (e is HandshakeException) return 'TLS chyba: ${e.message}';
-    if (e is TimeoutException) return 'Vypršel časový limit.';
-    if (e is FormatException) return 'Neplatná adresa serveru.';
+    if (e is SocketException) return s.errorUnreachable(e.message);
+    if (e is HandshakeException) return s.errorTls(e.message);
+    if (e is TimeoutException) return s.errorTimeout;
+    if (e is FormatException) return s.errorBadServerUrl;
     return e.toString();
   }
 

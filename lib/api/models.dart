@@ -1,3 +1,5 @@
+import '../l10n/strings.dart';
+
 /// Summary of a session row as `profiles.list {include_sessions: true}` reports it.
 class SessionSummary {
   SessionSummary({
@@ -257,7 +259,7 @@ class CronJob {
 
   factory CronJob.fromJson(Map<String, dynamic> j) => CronJob(
     id: j['job_id']?.toString() ?? j['id']?.toString() ?? '',
-    name: j['name']?.toString() ?? 'Úloha',
+    name: j['name']?.toString() ?? Strings.current.jobFallback,
     schedule: j['schedule']?.toString() ?? '?',
     prompt: j['prompt_preview']?.toString() ?? '',
     enabled: j['enabled'] != false,

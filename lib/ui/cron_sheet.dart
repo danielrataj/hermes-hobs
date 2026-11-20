@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../api/models.dart';
+import '../l10n/strings.dart';
 import '../state/app_state.dart';
 import 'format.dart';
 
@@ -41,6 +42,7 @@ class _CronListState extends State<_CronList> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final s = Strings.of(context);
     return FutureBuilder<List<CronJob>>(
       future: _jobs,
       builder: (context, snap) {
@@ -50,12 +52,12 @@ class _CronListState extends State<_CronList> {
             children: [
               Expanded(
                 child: Text(
-                  'Naplánované úlohy · ${widget.bot.displayName}',
+                  '${s.scheduledJobs} · ${widget.bot.displayName}',
                   style: theme.textTheme.titleMedium,
                 ),
               ),
               IconButton(
-                tooltip: 'Obnovit',
+                tooltip: s.refresh,
                 onPressed: () =>
                     setState(() => _jobs = widget.app.cronJobs(widget.bot)),
                 icon: const Icon(Icons.refresh),
@@ -73,7 +75,7 @@ class _CronListState extends State<_CronList> {
           body = Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'Úlohy se nepodařilo načíst: ${snap.error}',
+              s.jobsLoadFailed(snap.error),
               style: TextStyle(color: cs.error),
             ),
           );
@@ -81,7 +83,7 @@ class _CronListState extends State<_CronList> {
           body = Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'Bot nemá žádné naplánované úlohy.',
+              s.noJobs,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -107,6 +109,7 @@ class _JobTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final s = Strings.of(context);
     final paused = !job.enabled || job.state == 'paused';
     final failed =
         job.lastStatus == 'error' ||
@@ -126,11 +129,11 @@ class _JobTile extends StatelessWidget {
         children: [
           Text(job.schedule, style: muted),
           if (!paused && job.nextRun != null)
-            Text('Další běh: ${dayTime(job.nextRun!)}', style: muted),
-          if (paused) Text('Pozastaveno', style: muted),
+            Text(s.nextRun(dayTime(job.nextRun!)), style: muted),
+          if (paused) Text(s.paused, style: muted),
           if (job.lastRun != null)
             Text(
-              'Poslední běh: ${dayTime(job.lastRun!)}${failed ? ' · chyba' : ''}',
+              '${s.lastRun(dayTime(job.lastRun!))}${failed ? ' · ${s.failedTag}' : ''}',
               style: muted?.copyWith(color: failed ? cs.error : null),
             ),
         ],

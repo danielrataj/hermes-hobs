@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../api/hermes_rpc.dart';
 import '../api/models.dart';
+import '../l10n/strings.dart';
 import '../state/app_state.dart';
 import '../state/chat_controller.dart';
 import 'bot_avatar.dart';
@@ -96,6 +97,7 @@ class _ChatViewState extends State<ChatView> {
   Widget build(BuildContext context) {
     final c = context.watch<ChatController>();
     final theme = Theme.of(context);
+    final s = Strings.of(context);
     final working = c.busy || c.bot.workingNow;
     final prompt = c.lastPrompt;
     return Scaffold(
@@ -112,7 +114,7 @@ class _ChatViewState extends State<ChatView> {
                 children: [
                   Text(c.bot.displayName, overflow: TextOverflow.ellipsis),
                   Text(
-                    _subtitle(c),
+                    _subtitle(c, s),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: c.busy
                           ? HobsColors.of(context).working
@@ -127,7 +129,7 @@ class _ChatViewState extends State<ChatView> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Naplánované úlohy',
+            tooltip: s.scheduledJobs,
             onPressed: () => showCronSheet(context, c.bot),
             icon: const Icon(Icons.event_repeat_outlined),
           ),
@@ -138,14 +140,12 @@ class _ChatViewState extends State<ChatView> {
           if (c.connection != ConnectionStatus.connected &&
               c.phase != ChatPhase.starting)
             MaterialBanner(
-              content: const Text(
-                'Spojení se serverem přerušeno, připojuji znovu…',
-              ),
+              content: Text(s.connectionLost),
               leading: const Icon(Icons.wifi_off),
               actions: [
                 TextButton(
                   onPressed: () => context.read<AppState>().onAppResumed(),
-                  child: const Text('Teď'),
+                  child: Text(s.reconnectNow),
                 ),
               ],
             ),
@@ -172,8 +172,10 @@ class _ChatViewState extends State<ChatView> {
                         avatar: const Icon(Icons.arrow_downward, size: 16),
                         label: Text(
                           c.messages.length > _countWhenLeft
-                              ? '${c.messages.length - _countWhenLeft} nové'
-                              : 'Na konec',
+                              ? s.newMessages(
+                                  c.messages.length - _countWhenLeft,
+                                )
+                              : s.jumpToEnd,
                         ),
                         onPressed: _jumpToBottom,
                       ),
@@ -198,7 +200,7 @@ class _ChatViewState extends State<ChatView> {
                     ),
                   ),
                   if (c.phase == ChatPhase.failed)
-                    TextButton(onPressed: c.start, child: const Text('Znovu')),
+                    TextButton(onPressed: c.start, child: Text(s.tryAgain)),
                 ],
               ),
             ),
@@ -216,14 +218,12 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  String _subtitle(ChatController c) {
-    if (c.phase == ChatPhase.starting) return 'Otevírám Bot Chat…';
-    if (c.busy) {
-      return 'pracuje${c.statusText != null ? ' · ${c.statusText}' : '…'}';
-    }
-    if (c.bot.workingNow) return 'pracuje na pozadí';
+  String _subtitle(ChatController c, Strings s) {
+    if (c.phase == ChatPhase.starting) return s.openingChat;
+    if (c.busy) return s.workingOn(c.statusText);
+    if (c.bot.workingNow) return s.workingInBackground;
     final last = c.bot.lastActive;
-    return last != null ? 'aktivní ${relativeAge(last)}' : (c.bot.description);
+    return last != null ? s.activeAgo(relativeAge(last)) : (c.bot.description);
   }
 
   Widget _buildMessages(ChatController c, ThemeData theme) {
@@ -240,7 +240,7 @@ class _ChatViewState extends State<ChatView> {
               BotAvatar(bot: c.bot, size: 64),
               const SizedBox(height: 12),
               Text(
-                'Napiš zprávu pro ${c.bot.displayName}',
+                Strings.of(context).writeTo(c.bot.displayName),
                 style: theme.textTheme.titleMedium,
               ),
               if (c.bot.description.isNotEmpty) ...[
@@ -401,7 +401,7 @@ class _MessageRow extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    'přerušeno',
+                    Strings.of(context).interruptedTag,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: cs.outline,
                     ),
@@ -420,16 +420,16 @@ class _MessageRow extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       IconButton(
-                        tooltip: 'Kopírovat',
+                        tooltip: Strings.of(context).copy,
                         visualDensity: VisualDensity.compact,
                         iconSize: 16,
                         color: cs.outline,
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: message.text));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Zkopírováno'),
-                              duration: Duration(seconds: 1),
+                            SnackBar(
+                              content: Text(Strings.of(context).copied),
+                              duration: const Duration(seconds: 1),
                             ),
                           );
                         },
@@ -490,33 +490,19 @@ class _ActivityRow extends StatelessWidget {
   final ChatMessage message;
   final VoidCallback onToggle;
 
-  static String _label(String tool) => switch (tool) {
-    'message_agent' || 'send_message' => 'zpráva agentovi',
-    'skill_view' || 'skills_list' || 'skill_load' => 'skill',
-    'terminal' || 'execute_code' => 'příkaz',
-    'web_search' => 'hledání na webu',
-    'web_extract' || 'browser_navigate' => 'web',
-    'read_file' || 'search_files' => 'soubory',
-    'write_file' || 'patch' => 'úprava souboru',
-    'clarify' => 'dotaz',
-    'cronjob' => 'naplánovaná úloha',
-    'todo' => 'úkoly',
-    'memory' => 'paměť',
-    'delegate_task' => 'delegace',
-    _ => tool.replaceAll('_', ' '),
-  };
+  String _summary(Strings s) {
+    String label(String tool) => s.toolLabel(tool) ?? tool.replaceAll('_', ' ');
 
-  String _summary() {
     final tools = message.tools;
     final running = tools.where((t) => t.state == ToolState.running).toList();
     if (running.isNotEmpty) {
       final t = running.last;
       final detail = t.progress ?? t.preview;
-      return '${_label(t.name)}${detail != null && detail.isNotEmpty ? ' · $detail' : ''}';
+      return '${label(t.name)}${detail != null && detail.isNotEmpty ? ' · $detail' : ''}';
     }
     final counts = <String, int>{};
     for (final t in tools) {
-      final l = _label(t.name);
+      final l = label(t.name);
       counts[l] = (counts[l] ?? 0) + 1;
     }
     return counts.entries
@@ -560,7 +546,7 @@ class _ActivityRow extends StatelessWidget {
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      _summary(),
+                      _summary(Strings.of(context)),
                       style: muted,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -656,7 +642,7 @@ class _TypingRow extends StatelessWidget {
           const SizedBox(width: 10),
           Flexible(
             child: Text(
-              status ?? 'Přemýšlí…',
+              status ?? Strings.of(context).thinking,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -695,6 +681,7 @@ class _Composer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final s = Strings.of(context);
     final canType = chat.ready || chat.busy;
     final chipStyle = theme.textTheme.labelSmall?.copyWith(
       color: cs.onSurfaceVariant,
@@ -730,7 +717,7 @@ class _Composer extends StatelessWidget {
                         maxLines: 6,
                         textInputAction: TextInputAction.newline,
                         decoration: InputDecoration(
-                          hintText: chat.ready ? 'Napiš zprávu' : 'Připojuji…',
+                          hintText: chat.ready ? s.messageHint : s.connecting,
                           filled: false,
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
@@ -748,12 +735,12 @@ class _Composer extends StatelessWidget {
                     padding: const EdgeInsets.all(4),
                     child: chat.busy
                         ? IconButton.filledTonal(
-                            tooltip: 'Zastavit',
+                            tooltip: s.stop,
                             onPressed: chat.interrupt,
                             icon: const Icon(Icons.stop, size: 20),
                           )
                         : IconButton.filled(
-                            tooltip: 'Odeslat',
+                            tooltip: s.send,
                             onPressed: chat.ready ? onSend : null,
                             icon: const Icon(Icons.arrow_upward, size: 20),
                           ),
@@ -767,7 +754,7 @@ class _Composer extends StatelessWidget {
                 if (chat.model != null)
                   Flexible(
                     child: Tooltip(
-                      message: 'Model bota (mění se v profilu)',
+                      message: s.modelTooltip,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -788,7 +775,7 @@ class _Composer extends StatelessWidget {
                 const SizedBox(width: 6),
                 PopupMenuButton<String>(
                   enabled: chat.ready,
-                  tooltip: 'Úroveň uvažování',
+                  tooltip: s.reasoningLevel,
                   initialValue: chat.reasoningEffort,
                   onSelected: chat.setReasoningEffort,
                   itemBuilder: (_) => [
@@ -812,7 +799,7 @@ class _Composer extends StatelessWidget {
                       children: [
                         Text(
                           _effortLabels[chat.reasoningEffort] ??
-                              (chat.reasoningEffort ?? 'Uvažování'),
+                              (chat.reasoningEffort ?? s.reasoning),
                           style: chipStyle,
                         ),
                         Icon(
@@ -838,17 +825,19 @@ class _ApprovalCard extends StatelessWidget {
 
   final ChatController controller;
 
-  static const _labels = {
-    'once': 'Povolit jednou',
-    'session': 'Povolit v konverzaci',
-    'always': 'Povolit vždy',
-    'deny': 'Zamítnout',
+  static String _label(Strings s, String choice) => switch (choice) {
+    'once' => s.allowOnce,
+    'session' => s.allowSession,
+    'always' => s.allowAlways,
+    'deny' => s.deny,
+    _ => choice,
   };
 
   @override
   Widget build(BuildContext context) {
     final a = controller.approval!;
     final theme = Theme.of(context);
+    final s = Strings.of(context);
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       color: theme.colorScheme.tertiaryContainer,
@@ -863,7 +852,7 @@ class _ApprovalCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Bot žádá o schválení${a.toolName != null ? ' (${a.toolName})' : ''}',
+                    s.approvalTitle(a.toolName),
                     style: theme.textTheme.titleSmall,
                   ),
                 ),
@@ -897,11 +886,11 @@ class _ApprovalCard extends StatelessWidget {
                   choice == 'deny'
                       ? OutlinedButton(
                           onPressed: () => controller.answerApproval(choice),
-                          child: Text(_labels[choice] ?? choice),
+                          child: Text(_label(s, choice)),
                         )
                       : FilledButton.tonal(
                           onPressed: () => controller.answerApproval(choice),
-                          child: Text(_labels[choice] ?? choice),
+                          child: Text(_label(s, choice)),
                         ),
               ],
             ),
@@ -949,6 +938,7 @@ class _ClarifyCardState extends State<_ClarifyCard> {
   Widget build(BuildContext context) {
     final qs = widget.controller.clarify!;
     final theme = Theme.of(context);
+    final s = Strings.of(context);
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       color: theme.colorScheme.secondaryContainer,
@@ -965,7 +955,7 @@ class _ClarifyCardState extends State<_ClarifyCard> {
                 children: [
                   const Icon(Icons.help_outline, size: 18),
                   const SizedBox(width: 8),
-                  Text('Bot se ptá', style: theme.textTheme.titleSmall),
+                  Text(s.botAsks, style: theme.textTheme.titleSmall),
                 ],
               ),
               for (final q in qs) ...[
@@ -994,8 +984,8 @@ class _ClarifyCardState extends State<_ClarifyCard> {
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: (q.choices?.isNotEmpty ?? false)
-                        ? 'nebo vlastní odpověď'
-                        : 'Odpověď',
+                        ? s.orOwnAnswer
+                        : s.answerHint,
                   ),
                 ),
               ],
@@ -1005,13 +995,10 @@ class _ClarifyCardState extends State<_ClarifyCard> {
                 children: [
                   TextButton(
                     onPressed: () => widget.controller.answerClarify(null),
-                    child: const Text('Přeskočit'),
+                    child: Text(s.skip),
                   ),
                   const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _submit,
-                    child: const Text('Odpovědět'),
-                  ),
+                  FilledButton(onPressed: _submit, child: Text(s.answer)),
                 ],
               ),
             ],

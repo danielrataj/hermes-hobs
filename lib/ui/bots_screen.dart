@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../api/hermes_rpc.dart';
 import '../api/models.dart';
+import '../l10n/strings.dart';
 import '../state/app_state.dart';
 import 'bot_avatar.dart';
 import 'chat_screen.dart';
 import 'format.dart';
+import 'settings_screen.dart';
 import 'theme.dart';
 
 /// Bot roster grouped into the user's folders. On wide screens the chat
@@ -90,7 +92,10 @@ class _EmptyDetail extends StatelessWidget {
               color: theme.colorScheme.outline,
             ),
             const SizedBox(height: 12),
-            Text('Vyber bota vlevo', style: theme.textTheme.titleMedium),
+            Text(
+              Strings.of(context).pickBot,
+              style: theme.textTheme.titleMedium,
+            ),
           ],
         ),
       ),
@@ -123,28 +128,29 @@ class _BotListState extends State<_BotList> {
     super.dispose();
   }
 
-  static const _filters = [
-    (BotFilter.all, 'Vše'),
-    (BotFilter.unread, 'Nepřečtené'),
-    (BotFilter.pinned, 'Připnutí'),
-    (BotFilter.active, 'Aktivní'),
-    (BotFilter.recent, 'Nedávno'),
-    (BotFilter.older, 'Starší'),
+  static List<(BotFilter, String)> _filters(Strings s) => [
+    (BotFilter.all, s.filterAll),
+    (BotFilter.unread, s.filterUnread),
+    (BotFilter.pinned, s.filterPinned),
+    (BotFilter.active, s.filterActive),
+    (BotFilter.recent, s.filterRecent),
+    (BotFilter.older, s.filterOlder),
   ];
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final theme = Theme.of(context);
+    final s = Strings.of(context);
     final sections = app.sections;
     final unread = app.bots.where(app.isUnread).length;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Boti'),
+        title: Text(s.botsTitle),
         actions: [
           _ConnectionDot(status: app.connection),
           IconButton(
-            tooltip: unread > 0 ? 'Nepřečtené: $unread' : 'Žádné nepřečtené',
+            tooltip: unread > 0 ? s.unreadCount(unread) : s.noUnread,
             onPressed: () => app.setFilter(
               app.filter == BotFilter.unread ? BotFilter.all : BotFilter.unread,
             ),
@@ -157,6 +163,11 @@ class _BotListState extends State<_BotList> {
           PopupMenuButton<String>(
             onSelected: (v) {
               if (v == 'logout') app.logout();
+              if (v == 'settings') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                );
+              }
             },
             itemBuilder: (_) => [
               PopupMenuItem(
@@ -165,7 +176,8 @@ class _BotListState extends State<_BotList> {
                   '${app.username} @ ${Uri.tryParse(app.serverUrl)?.host ?? app.serverUrl}',
                 ),
               ),
-              const PopupMenuItem(value: 'logout', child: Text('Odhlásit')),
+              PopupMenuItem(value: 'settings', child: Text(s.settings)),
+              PopupMenuItem(value: 'logout', child: Text(s.signOut)),
             ],
           ),
         ],
@@ -179,7 +191,7 @@ class _BotListState extends State<_BotList> {
               onChanged: app.setQuery,
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                hintText: 'Hledat boty',
+                hintText: s.searchBots,
                 prefixIcon: const Icon(Icons.search, size: 20),
                 suffixIcon: app.query.isEmpty
                     ? null
@@ -200,7 +212,7 @@ class _BotListState extends State<_BotList> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               children: [
-                for (final (f, label) in _filters)
+                for (final (f, label) in _filters(s))
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: ChoiceChip(
@@ -217,7 +229,7 @@ class _BotListState extends State<_BotList> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: app.refreshBots,
-              child: _buildBody(app, theme, sections),
+              child: _buildBody(app, theme, s, sections),
             ),
           ),
         ],
@@ -225,7 +237,12 @@ class _BotListState extends State<_BotList> {
     );
   }
 
-  Widget _buildBody(AppState app, ThemeData theme, List<BotSection> sections) {
+  Widget _buildBody(
+    AppState app,
+    ThemeData theme,
+    Strings s,
+    List<BotSection> sections,
+  ) {
     if (app.loadingBots && app.bots.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -240,7 +257,7 @@ class _BotListState extends State<_BotList> {
           Center(
             child: OutlinedButton(
               onPressed: app.refreshBots,
-              child: const Text('Zkusit znovu'),
+              child: Text(s.retry),
             ),
           ),
         ],
@@ -250,13 +267,7 @@ class _BotListState extends State<_BotList> {
       return ListView(
         children: [
           const SizedBox(height: 100),
-          Center(
-            child: Text(
-              app.bots.isEmpty
-                  ? 'Na serveru nejsou žádní boti.'
-                  : 'Filtru nic neodpovídá.',
-            ),
-          ),
+          Center(child: Text(app.bots.isEmpty ? s.noBots : s.noMatches)),
         ],
       );
     }
@@ -378,6 +389,7 @@ class _BotRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final s = Strings.of(context);
     final preview = plainPreview(
       bot.preview.isNotEmpty ? bot.preview : bot.description,
     );
@@ -426,7 +438,7 @@ class _BotRow extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          working ? 'pracuje' : relativeAge(bot.lastActive),
+                          working ? s.working : relativeAge(bot.lastActive),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: working
                                 ? HobsColors.of(context).working
@@ -440,7 +452,7 @@ class _BotRow extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            preview.isEmpty ? 'Zatím bez zpráv' : preview,
+                            preview.isEmpty ? s.noMessagesYet : preview,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
@@ -479,12 +491,13 @@ class _ConnectionDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hobs = HobsColors.of(context);
+    final s = Strings.of(context);
     final (color, label) = switch (status) {
-      ConnectionStatus.connected => (hobs.working, 'Připojeno'),
-      ConnectionStatus.connecting => (hobs.lantern, 'Připojuji…'),
+      ConnectionStatus.connected => (hobs.working, s.connected),
+      ConnectionStatus.connecting => (hobs.lantern, s.connecting),
       ConnectionStatus.disconnected => (
         Theme.of(context).colorScheme.error,
-        'Odpojeno',
+        s.disconnected,
       ),
     };
     return Tooltip(
