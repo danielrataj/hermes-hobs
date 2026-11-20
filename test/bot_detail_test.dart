@@ -47,7 +47,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(BotDetailScreen), findsOneWidget);
-      expect(find.text('Profil bota'), findsOneWidget);
+      expect(find.text('Profil Hobíka'), findsOneWidget);
       expect(find.text('@dev-cto'), findsOneWidget);
       expect(find.widgetWithText(TextField, 'CTO'), findsOneWidget);
       await tester.drag(find.byType(ListView).last, const Offset(0, -600));

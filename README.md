@@ -1,7 +1,7 @@
 # Hermes Hobs
 
-Flutter client (iOS, Android, macOS) for working with your personal bots on a Hermes Agent
-dashboard (default `https://hermes.devrel.cz`). In Hermes, each **profile** is a bot.
+Flutter client (iOS, Android, macOS) for working with your personal Hobs on a Hermes Agent
+dashboard (default `https://hermes.devrel.cz`). In Hermes, each **profile** is a Hob.
 
 ## Run
 
@@ -17,14 +17,14 @@ Sign in with the dashboard's username and password (provider `basic`).
 | Step | Call |
 |---|---|
 | Login | `POST /auth/password-login` `{provider:"basic",username,password}` → session cookies (`hermes_session_at/rt/provider`). The app stores them and saves every rotated `Set-Cookie`. |
-| Bot list | RPC `profiles.list {include_sessions:true}` (REST `GET /api/profiles` as fallback). Folders, title, color, shape and pin come from `ui_meta['hermes-bots']`; preview and time come from `canonical_session`. |
+| Hob list | RPC `profiles.list {include_sessions:true}` (REST `GET /api/profiles` as fallback). Folders, title, color, shape and pin come from `ui_meta['hermes-bots']`; preview and time come from `canonical_session`. |
 | Chat socket | `POST /api/auth/ws-ticket` (single-use, 30 s) → `wss://…/api/ws?ticket=…`. JSON-RPC 2.0, one object per frame. No `Origin` header is sent. |
 | Handshake | the server sends `event gateway.ready`, the client sends `client.capabilities {server_requests:true}`, and the client sends `gateway.ping` every 15 s |
-| Bot Chat | Each bot has one forever-chat: the session titled "Bot Chat". The app opens it with `session.resume` (history included). On a bot's first chat it calls `session.create {title:"Bot Chat", hidden, follow_profile_config}` followed by `session.title`. |
+| Hob Chat | Each Hob has one forever-chat: the session titled "Bot Chat". The app opens it with `session.resume` (history included). On a Hob's first chat it calls `session.create {title:"Bot Chat", hidden, follow_profile_config}` followed by `session.title`. |
 | Conversation | `prompt.submit {session_id,text}` → events `message.start / message.delta / message.interim / tool.* / message.complete` |
 | Control | `session.interrupt`, `config.set {key:"reasoning", scope:"session"}`, `config.get` / `config.set {key:"approvals.mode", profile}` (profile-wide approval mode: manual, smart, off), server requests `approval` (reply with `{choice}`) and `clarify` (reply with `{answers,outcome}`) |
-| Folders | Rename: `profiles.configure {name, ui_meta:{"hermes-bots":{…,sectionName}}, ui_meta_expected_revisions}` for every bot in the folder (the write replaces the whole `hermes-bots` block, so the app sends it back complete). Folder order is local to the device, like on the dashboard. |
-| Bot profile | Tapping a bot's avatar (list or chat header) opens its profile. Title, shape and color: `profiles.configure` with the whole `hermes-bots` block, like folders. Description: `cli.exec {argv:["profile","describe",name,"--text",…]}`. Model: `profiles.describe {name}` reads it, `model.options` lists providers, `profiles.configure {name, provider, model}` switches it (`confirm_expensive_model` after the server asks); inheriting again is `cli.exec` `config unset model`. SOUL.md: read from `profiles.describe`, replaced with `profiles.configure {name, soul}`. |
+| Folders | Rename: `profiles.configure {name, ui_meta:{"hermes-bots":{…,sectionName}}, ui_meta_expected_revisions}` for every Hob in the folder (the write replaces the whole `hermes-bots` block, so the app sends it back complete). Folder order is local to the device, like on the dashboard. |
+| Hob profile | Tapping a Hob's avatar (list or chat header) opens its profile. Title, shape and color: `profiles.configure` with the whole `hermes-bots` block, like folders. Description: `cli.exec {argv:["profile","describe",name,"--text",…]}`. Model: `profiles.describe {name}` reads it, `model.options` lists providers, `profiles.configure {name, provider, model}` switches it (`confirm_expensive_model` after the server asks); inheriting again is `cli.exec` `config unset model`. SOUL.md: read from `profiles.describe`, replaced with `profiles.configure {name, soul}`. |
 | Scheduled jobs | `cron.manage {action:"list", profile}` (read-only) |
 | Reconnect | auto backoff, then `session.resume` with the stored id |
 
@@ -36,8 +36,8 @@ state, collapsed folders and folder order are stored locally on the device.
 - `lib/api/hermes_http.dart`: cookie-aware REST client (dart:io)
 - `lib/api/hermes_rpc.dart`: `/api/ws` JSON-RPC client (ticket, heartbeat, reconnect, server requests)
 - `lib/state/chat_controller.dart`: one conversation, event → message model
-- `lib/state/app_state.dart`: login, bot list, chats per bot
-- `lib/ui/`: login, bot list (split view on wide screens), chat
+- `lib/state/app_state.dart`: login, Hob list, chats per Hob
+- `lib/ui/`: login, Hob list (split view on wide screens), chat
 - `test/`: fake Hermes server covering the whole flow
 
 Web is not a target: browser CORS and cookie rules block cross-origin access to the dashboard.
