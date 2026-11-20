@@ -7,6 +7,7 @@ import '../state/app_state.dart';
 import 'bot_avatar.dart';
 import 'chat_screen.dart';
 import 'format.dart';
+import 'theme.dart';
 
 /// Bot roster grouped into the user's folders. On wide screens the chat
 /// opens beside the list (like the dashboard); on phones it is pushed.
@@ -192,9 +193,6 @@ class _BotListState extends State<_BotList> {
                         },
                       ),
                 isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
               ),
             ),
           ),
@@ -348,7 +346,11 @@ class _SectionHeader extends StatelessWidget {
               ),
             ),
             if (collapsed && unread > 0) ...[
-              Icon(Icons.circle, size: 7, color: theme.colorScheme.primary),
+              Icon(
+                Icons.circle,
+                size: 7,
+                color: HobsColors.of(context).lantern,
+              ),
               const SizedBox(width: 8),
             ],
             Text('$count', style: style),
@@ -429,7 +431,7 @@ class _BotRow extends StatelessWidget {
                           working ? 'pracuje' : relativeAge(bot.lastActive),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: working
-                                ? const Color(0xFF1D9E75)
+                                ? HobsColors.of(context).working
                                 : (unread ? cs.primary : cs.outline),
                           ),
                         ),
@@ -452,7 +454,11 @@ class _BotRow extends StatelessWidget {
                         ),
                         if (unread) ...[
                           const SizedBox(width: 8),
-                          Icon(Icons.circle, size: 8, color: cs.primary),
+                          Icon(
+                            Icons.circle,
+                            size: 8,
+                            color: HobsColors.of(context).lantern,
+                          ),
                         ],
                       ],
                     ),
@@ -474,10 +480,14 @@ class _ConnectionDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hobs = HobsColors.of(context);
     final (color, label) = switch (status) {
-      ConnectionStatus.connected => (Colors.green, 'Připojeno'),
-      ConnectionStatus.connecting => (Colors.orange, 'Připojuji…'),
-      ConnectionStatus.disconnected => (Colors.red, 'Odpojeno'),
+      ConnectionStatus.connected => (hobs.working, 'Připojeno'),
+      ConnectionStatus.connecting => (hobs.lantern, 'Připojuji…'),
+      ConnectionStatus.disconnected => (
+        Theme.of(context).colorScheme.error,
+        'Odpojeno',
+      ),
     };
     return Tooltip(
       message: label,

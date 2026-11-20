@@ -10,6 +10,7 @@ import '../state/chat_controller.dart';
 import 'bot_avatar.dart';
 import 'cron_sheet.dart';
 import 'format.dart';
+import 'theme.dart';
 
 class ChatScreen extends StatelessWidget {
   const ChatScreen({super.key, required this.bot, this.embedded = false});
@@ -113,7 +114,7 @@ class _ChatViewState extends State<ChatView> {
                     _subtitle(c),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: c.busy
-                          ? const Color(0xFF1D9E75)
+                          ? HobsColors.of(context).working
                           : theme.colorScheme.onSurfaceVariant,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -372,11 +373,15 @@ class _MessageRow extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: cs.surfaceContainerLow,
-              border: Border.all(color: cs.outlineVariant),
-              borderRadius: BorderRadius.circular(10),
+              color: cs.primaryContainer,
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Text(message.text, style: theme.textTheme.bodyMedium),
+            child: Text(
+              message.text,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: cs.onPrimaryContainer,
+              ),
+            ),
           ),
         );
       case ChatRole.assistant:
@@ -711,6 +716,7 @@ class _Composer extends StatelessWidget {
             Container(
               padding: const EdgeInsets.fromLTRB(14, 2, 4, 2),
               decoration: BoxDecoration(
+                color: cs.surfaceContainerLowest,
                 border: Border.all(color: cs.outline.withValues(alpha: 0.5)),
                 borderRadius: BorderRadius.circular(22),
               ),
@@ -732,7 +738,11 @@ class _Composer extends StatelessWidget {
                         textInputAction: TextInputAction.newline,
                         decoration: InputDecoration(
                           hintText: chat.ready ? 'Napiš zprávu' : 'Připojuji…',
+                          filled: false,
                           border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(
                             vertical: 12,

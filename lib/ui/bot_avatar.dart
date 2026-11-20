@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../api/models.dart';
+import 'theme.dart';
 
 /// Bot avatar in the dashboard's vocabulary: a colored shape with two eyes.
 ///
@@ -99,7 +100,7 @@ class BotAvatar extends StatelessWidget {
                 width: dot,
                 height: dot,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1D9E75),
+                  color: HobsColors.of(context).working,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: Theme.of(context).colorScheme.surface,

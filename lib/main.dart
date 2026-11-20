@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'state/app_state.dart';
 import 'ui/bots_screen.dart';
 import 'ui/login_screen.dart';
+import 'ui/theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,8 +23,7 @@ class HobsApp extends StatefulWidget {
   State<HobsApp> createState() => _HobsAppState();
 }
 
-class _HobsAppState extends State<HobsApp>
-    with WidgetsBindingObserver {
+class _HobsAppState extends State<HobsApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -43,16 +43,14 @@ class _HobsAppState extends State<HobsApp>
     }
   }
 
-  static const _seed = Color(0xFFFFAC02); // Hermes amber
-
   @override
   Widget build(BuildContext context) {
     final phase = context.select<AppState, AuthPhase>((s) => s.phase);
     return MaterialApp(
       title: 'Hobs',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.light),
-      darkTheme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.dark),
+      theme: HobsTheme.lightTheme(),
+      darkTheme: HobsTheme.darkTheme(),
       home: switch (phase) {
         AuthPhase.loading => const Scaffold(
           body: Center(child: CircularProgressIndicator()),
