@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:blobatar_flutter/blobatar_flutter.dart';
 import 'package:flutter/material.dart';
 
 import '../api/models.dart';
@@ -10,27 +11,69 @@ import 'theme.dart';
 /// Shape and color come from `ui_meta['hermes-bots']` (`shape`, `color`).
 /// Without them both are derived from the bot name, like the dashboard does,
 /// so a bot keeps the same face on every device.
+/// What an avatar draws: resolved from a bot's stored `shape` and `color`
+/// the way the dashboard resolves them.
+class BotFace {
+  const BotFace({
+    required this.shape,
+    required this.color,
+    this.lightEyes = false,
+    this.blobSeed,
+    this.blobKind,
+  });
+
+  /// One of the shapes [_AvatarPainter] knows; anything else is a circle.
+  final String shape;
+  final Color color;
+
+  /// Dark bodies get light eyes.
+  final bool lightEyes;
+
+  /// Set for a generated "blobatar" face: the seed it grows from. It brings
+  /// its own colors, so [shape] and [color] are not drawn.
+  final String? blobSeed;
+
+  /// The silhouette a blobatar is pinned to; null lets the seed decide.
+  final String? blobKind;
+
+  @override
+  bool operator ==(Object other) =>
+      other is BotFace &&
+      other.shape == shape &&
+      other.color == color &&
+      other.lightEyes == lightEyes &&
+      other.blobSeed == blobSeed &&
+      other.blobKind == blobKind;
+
+  @override
+  int get hashCode => Object.hash(shape, color, lightEyes, blobSeed, blobKind);
+}
+
+/// Bot avatar as the dashboard draws it: a colored shape with two eyes.
+///
+/// Shape and color come from `ui_meta['hermes-bots']` (`shape`, `color`).
+/// Without them both are derived from the bot name with the dashboard's own
+/// formulas, so a bot has the same face here and on the web.
 class BotAvatar extends StatelessWidget {
   const BotAvatar({
     super.key,
     required this.bot,
     this.size = 36,
     this.working = false,
-    this.shape,
-    this.color,
+    this.face,
   });
 
   final Bot bot;
   final double size;
 
-  /// Draw this shape and color instead of the bot's own (editor preview).
-  final String? shape;
-  final Color? color;
+  /// Draw this face instead of the bot's own (editor preview).
+  final BotFace? face;
 
   /// Shows the green presence dot.
   final bool working;
 
-  static const _shapes = [
+  /// Shapes a name can turn into, in the dashboard's order.
+  static const _autoShapes = [
     'circle',
     'squircle',
     'pill',
@@ -52,60 +95,156 @@ class BotAvatar extends StatelessWidget {
     'drop',
   ];
 
-  static const palette = [
-    Color(0xFFF0997B),
-    Color(0xFF85B7EB),
-    Color(0xFFE24B4A),
-    Color(0xFF7F77DD),
-    Color(0xFFEF9F27),
-    Color(0xFF5DCAA5),
-    Color(0xFFD4537E),
-    Color(0xFF378ADD),
-    Color(0xFF97C459),
-    Color(0xFFFAC775),
-    Color(0xFF534AB7),
-    Color(0xFF9FE1CB),
+  /// Names the dashboard draws as one of the shapes above.
+  static const _aliases = {
+    'teardrop': 'drop',
+    'tetrahedron': 'triangle',
+    'wedge': 'triangle',
+    'hex': 'hexagon',
+    'icosahedron': 'hexagon',
+    'dodecahedron': 'hexagon',
+  };
+
+  /// Blobatar silhouettes with the trait value the dashboard pins each to.
+  static const blobKinds = {
+    'round': .11,
+    'organic': .35,
+    'boxy': .54,
+    'capsule': .65,
+    'nub': .745,
+    'cloud': .825,
+    'droplet': .8875,
+    'hexagon': .9325,
+    'sun': .965,
+    'triangle': .99,
+  };
+
+  static bool isBlob(String? shape) =>
+      shape == 'blobatar' || (shape?.startsWith('blobatar:') ?? false);
+
+  /// The seed a stored blobatar shape carries (`blobatar:<seed>:<kind>`);
+  /// empty when the face follows the bot's name.
+  static String blobSeedOf(String? shape) =>
+      isBlob(shape) ? (shape!.split(':').elementAtOrNull(1) ?? '') : '';
+
+  /// The silhouette a stored blobatar shape is pinned to, or null.
+  static String? blobKindOf(String? shape) {
+    final kind = isBlob(shape) ? shape!.split(':').elementAtOrNull(2) : null;
+    return blobKinds.containsKey(kind) ? kind : null;
+  }
+
+  /// The stored value for a blobatar with this [seed] and [kind].
+  static String blobShape(String seed, String? kind) => kind != null
+      ? 'blobatar:$seed:$kind'
+      : (seed.isEmpty ? 'blobatar' : 'blobatar:$seed');
+
+  /// The dashboard's swatches, stored the way it stores them.
+  static final List<String> palette = [
+    for (var i = 0; i < 12; i++) 'hsl(${i * 30} 68% 58%)',
   ];
 
+  /// The dashboard's color for the default profile and for nameless bots.
+  static const _fallbackColor = Color(0xFF8B5CF6);
+
+  /// The dashboard's string hash: `h * 31 + unit`, wrapped to 32 bits.
   static int _hash(String s) {
     var h = 0;
     for (final c in s.codeUnits) {
-      h = (h * 31 + c) & 0x7fffffff;
+      h = (h * 31 + c) & 0xFFFFFFFF;
     }
     return h;
   }
 
-  static String shapeFor(Bot bot) =>
-      normalizeShape(bot.shape) ?? autoShape(bot);
+  static BotFace faceOf(Bot bot) => resolve(
+    name: bot.name,
+    shape: bot.shape,
+    color: bot.color,
+    custom: bot.meta['custom'] == true,
+  );
 
-  /// The shape drawn for a stored `shape` value, or null when it names none.
-  static String? normalizeShape(String? s) {
-    if (s == null) return null;
-    if (s == 'blob' || s.startsWith('blobatar')) return 'blob';
-    return _shapes.contains(s) ? s : null;
+  /// The face for a stored [shape] and [color]; null takes the one derived
+  /// from [name]. The default profile keeps its fixed face until the user
+  /// picks one ([custom]).
+  static BotFace resolve({
+    required String name,
+    String? shape,
+    String? color,
+    bool custom = false,
+  }) {
+    if (name.trim().toLowerCase() == 'default' && !custom) {
+      return const BotFace(shape: 'squircle', color: _fallbackColor);
+    }
+    final parsed = parseColor(color);
+    final seed = blobSeedOf(shape);
+    return BotFace(
+      blobSeed: !isBlob(shape)
+          ? null
+          : (seed.isNotEmpty ? seed : (name.isNotEmpty ? name : 'agent')),
+      blobKind: blobKindOf(shape),
+      shape: pickedShape(shape) ?? autoShape(name),
+      color: parsed ?? autoColor(name),
+      // The dashboard only measures colors written as hex.
+      lightEyes:
+          parsed != null && color!.trim().startsWith('#') && _isDark(parsed),
+    );
+  }
+
+  static String shapeFor(Bot bot) => faceOf(bot).shape;
+
+  static Color colorFor(Bot bot) => faceOf(bot).color;
+
+  /// The drawable shape a stored `shape` value names, or null when the name
+  /// decides (nothing stored, or a shape this app cannot draw).
+  static String? pickedShape(String? stored) {
+    final s = _aliases[stored] ?? stored;
+    return pickableShapes.contains(s) ? s : null;
   }
 
   /// The shape a bot gets from its name when none is picked.
-  static String autoShape(Bot bot) => _shapes[_hash(bot.name) % _shapes.length];
-
-  static Color colorFor(Bot bot) => parseColor(bot.color) ?? autoColor(bot);
-
-  static Color? parseColor(String? c) {
-    if (c == null || !RegExp(r'^#?[0-9a-fA-F]{6}$').hasMatch(c)) return null;
-    return Color(int.parse(c.replaceFirst('#', ''), radix: 16) | 0xFF000000);
-  }
+  static String autoShape(String name) =>
+      _autoShapes[_hash(name) % _autoShapes.length];
 
   /// The color a bot gets from its name when none is picked.
-  static Color autoColor(Bot bot) =>
-      palette[_hash('${bot.name}::color') % palette.length];
+  static Color autoColor(String name) {
+    final n = name.trim();
+    if (n.isEmpty || n == 'default') return _fallbackColor;
+    return HSLColor.fromAHSL(
+      1,
+      (_hash(n) % 360).toDouble(),
+      .68,
+      .58,
+    ).toColor();
+  }
 
-  /// `#RRGGBB`, the way the dashboard stores a color.
-  static String hex(Color c) =>
-      '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+  static final _hex = RegExp(r'^#([0-9a-fA-F]{6})$');
+  static final _hsl = RegExp(
+    r'^hsl\(\s*([\d.]+)(?:deg)?[\s,]+([\d.]+)%[\s,]+([\d.]+)%\s*\)$',
+  );
+
+  /// Reads a stored color: `#RRGGBB` or `hsl(H S% L%)`.
+  static Color? parseColor(String? value) {
+    final c = value?.trim() ?? '';
+    final hex = _hex.firstMatch(c);
+    if (hex != null) return Color(int.parse(hex[1]!, radix: 16) | 0xFF000000);
+    final hsl = _hsl.firstMatch(c);
+    if (hsl == null) return null;
+    final h = double.tryParse(hsl[1]!), s = double.tryParse(hsl[2]!);
+    final l = double.tryParse(hsl[3]!);
+    if (h == null || s == null || l == null) return null;
+    return HSLColor.fromAHSL(
+      1,
+      h % 360,
+      (s / 100).clamp(0, 1),
+      (l / 100).clamp(0, 1),
+    ).toColor();
+  }
+
+  static bool _isDark(Color c) =>
+      (.2126 * c.r + .7152 * c.g + .0722 * c.b) * 255 < 110;
 
   @override
   Widget build(BuildContext context) {
-    final color = this.color ?? colorFor(bot);
+    final face = this.face ?? faceOf(bot);
     final dot = size * 0.3;
     return SizedBox(
       width: size,
@@ -113,14 +252,16 @@ class BotAvatar extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          CustomPaint(
-            size: Size.square(size),
-            painter: _AvatarPainter(
-              shape: shape ?? shapeFor(bot),
-              color: color,
-              seed: _hash(bot.name),
-            ),
-          ),
+          if (face.blobSeed != null)
+            Blobatar(
+              name: face.blobSeed!,
+              size: size,
+              traitOverrides: face.blobKind == null
+                  ? null
+                  : {'shape': blobKinds[face.blobKind]!},
+            )
+          else
+            CustomPaint(size: Size.square(size), painter: _AvatarPainter(face)),
           if (working)
             Positioned(
               right: -1,
@@ -144,121 +285,105 @@ class BotAvatar extends StatelessWidget {
   }
 }
 
+/// Paints a face in the dashboard's 40-unit box: the body around (20, 20),
+/// the eyes on fixed spots, each with a small highlight.
 class _AvatarPainter extends CustomPainter {
-  _AvatarPainter({
-    required this.shape,
-    required this.color,
-    required this.seed,
-  });
+  _AvatarPainter(this.face);
 
-  final String shape;
-  final Color color;
-  final int seed;
+  final BotFace face;
 
-  Path _shapePath(Size s) {
-    final w = s.width, h = s.height;
-    final p = Path();
-    switch (shape) {
+  static const _steps = 52;
+
+  /// Radius of the body at [angle], for the shapes the dashboard traces
+  /// around the center.
+  double _radius(double angle) {
+    final c = math.cos(angle).abs(), s = math.sin(angle).abs();
+    switch (face.shape) {
+      case 'blob':
+        return 16 + 1.7 * math.sin(3 * angle) + .7 * math.cos(5 * angle);
       case 'squircle':
-        p.addRRect(
-          RRect.fromRectAndRadius(Offset.zero & s, Radius.circular(w * 0.3)),
-        );
+        return 16.2 / math.pow(math.pow(c, 5) + math.pow(s, 5), 1 / 5);
       case 'pill':
-        p.addRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(0, h * 0.18, w, h * 0.64),
-            Radius.circular(h * 0.32),
-          ),
-        );
+        return 16 / math.pow(math.pow(c, 8) + math.pow(s / .72, 8), 1 / 8);
       case 'triangle':
-        p
-          ..moveTo(w / 2, h * 0.04)
-          ..quadraticBezierTo(w * 0.56, h * 0.04, w * 0.98, h * 0.86)
-          ..quadraticBezierTo(w, h * 0.94, w * 0.9, h * 0.94)
-          ..lineTo(w * 0.1, h * 0.94)
-          ..quadraticBezierTo(0, h * 0.94, w * 0.02, h * 0.86)
-          ..quadraticBezierTo(w * 0.44, h * 0.04, w / 2, h * 0.04);
+        const third = math.pi * 2 / 3;
+        final t = ((angle + math.pi / 2 + math.pi * 2) % (math.pi * 2)) / third;
+        return 13.5 / math.max(.42, math.cos((t % 1 - .5) * 1.9));
       case 'hexagon':
-        for (var i = 0; i < 6; i++) {
-          final a = math.pi / 3 * i - math.pi / 2;
-          final pt = Offset(
-            w / 2 + w / 2 * math.cos(a),
-            h / 2 + h / 2 * math.sin(a),
-          );
-          i == 0 ? p.moveTo(pt.dx, pt.dy) : p.lineTo(pt.dx, pt.dy);
-        }
-        p.close();
+        const sixth = math.pi / 3;
+        final nearest = sixth * (angle / sixth).round();
+        return 16.2 * math.cos(sixth / 2) / math.cos(angle - nearest);
+      default:
+        return 16.2;
+    }
+  }
+
+  Path _body() {
+    final p = Path();
+    switch (face.shape) {
       case 'cloud':
         p
-          ..addOval(
-            Rect.fromCircle(
-              center: Offset(w * 0.32, h * 0.58),
-              radius: w * 0.26,
-            ),
+          ..moveTo(11, 32)
+          ..arcToPoint(
+            const Offset(10, 17.1),
+            radius: const Radius.circular(7.5),
           )
-          ..addOval(
-            Rect.fromCircle(
-              center: Offset(w * 0.68, h * 0.58),
-              radius: w * 0.26,
-            ),
+          ..arcToPoint(
+            const Offset(29, 12.5),
+            radius: const Radius.circular(9.5),
           )
-          ..addOval(
-            Rect.fromCircle(center: Offset(w * 0.5, h * 0.4), radius: w * 0.3),
-          )
-          ..addRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromLTWH(w * 0.1, h * 0.5, w * 0.8, h * 0.34),
-              Radius.circular(h * 0.17),
-            ),
-          );
+          ..arcToPoint(const Offset(30, 32), radius: const Radius.circular(7))
+          ..close();
       case 'drop':
         p
-          ..moveTo(w / 2, 0)
-          ..cubicTo(w * 0.62, h * 0.22, w * 0.95, h * 0.45, w * 0.95, h * 0.64)
-          ..arcToPoint(
-            Offset(w * 0.05, h * 0.64),
-            radius: Radius.circular(w * 0.45),
+          ..moveTo(20, 3)
+          ..cubicTo(20, 3, 6, 20, 6, 27)
+          ..arcTo(
+            Rect.fromCenter(
+              center: const Offset(20, 27),
+              width: 28,
+              height: 27,
+            ),
+            math.pi,
+            -math.pi,
+            false,
           )
-          ..cubicTo(w * 0.05, h * 0.45, w * 0.38, h * 0.22, w / 2, 0)
+          ..cubicTo(34, 20, 20, 3, 20, 3)
           ..close();
-      case 'blob':
-        final rnd = math.Random(seed);
-        const n = 7;
-        final pts = <Offset>[];
-        for (var i = 0; i < n; i++) {
-          final a = 2 * math.pi * i / n;
-          final r = w * (0.4 + rnd.nextDouble() * 0.1);
-          pts.add(Offset(w / 2 + r * math.cos(a), h / 2 + r * math.sin(a)));
-        }
-        Offset mid(Offset a, Offset b) =>
-            Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2);
-        final start = mid(pts.last, pts.first);
-        p.moveTo(start.dx, start.dy);
-        for (var i = 0; i < n; i++) {
-          final c = pts[i];
-          final next = mid(c, pts[(i + 1) % n]);
-          p.quadraticBezierTo(c.dx, c.dy, next.dx, next.dy);
+      default:
+        for (var i = 0; i < _steps; i++) {
+          final a = i / _steps * math.pi * 2 - math.pi / 2;
+          final r = _radius(a);
+          final x = 20 + r * math.cos(a), y = 20 + r * math.sin(a);
+          i == 0 ? p.moveTo(x, y) : p.lineTo(x, y);
         }
         p.close();
-      default:
-        p.addOval(Offset.zero & s);
     }
     return p;
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawPath(_shapePath(size), Paint()..color = color);
-    final dark = color.computeLuminance() < 0.25;
-    final eye = Paint()..color = dark ? Colors.white : const Color(0xFF2C2C2A);
-    final eyeY = shape == 'triangle' ? size.height * 0.62 : size.height * 0.5;
-    final dx = size.width * 0.13;
-    final r = size.width * 0.065;
-    canvas.drawCircle(Offset(size.width / 2 - dx, eyeY), r, eye);
-    canvas.drawCircle(Offset(size.width / 2 + dx, eyeY), r, eye);
+    canvas.scale(size.width / 40);
+    canvas.drawPath(_body(), Paint()..color = face.color);
+    final eye = Paint()
+      ..color = face.lightEyes
+          ? const Color.fromRGBO(232, 220, 195, .95)
+          : const Color.fromRGBO(0, 0, 0, .85);
+    final glint = Paint()
+      ..color = face.lightEyes
+          ? const Color.fromRGBO(0, 0, 0, .6)
+          : const Color.fromRGBO(255, 255, 255, .85);
+    final y = face.shape == 'cloud' ? 22.0 : 17.2;
+    for (final x in const [15.4, 24.6]) {
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset(x, y), width: 4.4, height: 4.6),
+        eye,
+      );
+      canvas.drawCircle(Offset(x - .6, y - .7), .65, glint);
+    }
   }
 
   @override
-  bool shouldRepaint(_AvatarPainter old) =>
-      old.shape != shape || old.color != color || old.seed != seed;
+  bool shouldRepaint(_AvatarPainter old) => old.face != face;
 }

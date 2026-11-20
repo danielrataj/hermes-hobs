@@ -123,7 +123,11 @@ class StringsEn extends Strings {
   @override
   String get appearance => 'Appearance';
   @override
-  String get shapeLabel => 'Shape';
+  String get blobFaceLabel => 'Face';
+  @override
+  String get randomizeFace => 'Another face';
+  @override
+  String get shapeLabel => 'Classic shape';
   @override
   String get colorLabel => 'Color';
   @override

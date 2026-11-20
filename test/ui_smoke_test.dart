@@ -49,15 +49,41 @@ void main() {
     );
     expect(find.byType(BotAvatar), findsNWidgets(shapes.length));
     expect(
-      BotAvatar.shapeFor(
-        Bot(name: 'x', displayName: 'x', shape: 'blobatar:7:a'),
-      ),
-      'blob',
-    );
-    expect(
       BotAvatar.colorFor(Bot(name: 'x', displayName: 'x', color: '#F0997B')),
       const Color(0xFFF0997B),
     );
+  });
+
+  test('faces follow the dashboard formulas', () {
+    // "a" hashes to 97: shape 97 % 7, hue 97.
+    final a = BotAvatar.resolve(name: 'a');
+    expect(a.shape, 'drop');
+    expect(a.color, const HSLColor.fromAHSL(1, 97, .68, .58).toColor());
+    // The hash wraps at 32 bits, like the dashboard's `>>> 0`.
+    expect(BotAvatar.autoShape('financni-poradce'), 'hexagon');
+
+    // The default profile keeps its fixed face until the user picks one.
+    final fixed = BotAvatar.resolve(name: 'Default', shape: 'drop');
+    expect((fixed.shape, fixed.color), ('squircle', const Color(0xFF8B5CF6)));
+    expect(
+      BotAvatar.resolve(name: 'default', shape: 'drop', custom: true).shape,
+      'drop',
+    );
+
+    expect(
+      BotAvatar.parseColor('hsl(30 68% 58%)'),
+      const HSLColor.fromAHSL(1, 30, .68, .58).toColor(),
+    );
+    expect(BotAvatar.palette.length, 12);
+    expect(BotAvatar.resolve(name: 'a', color: '#101010').lightEyes, isTrue);
+    expect(BotAvatar.resolve(name: 'a', shape: 'hex').shape, 'hexagon');
+    expect(BotAvatar.resolve(name: 'a', shape: 'weird').shape, 'drop');
+
+    final blob = BotAvatar.resolve(name: 'a', shape: 'blobatar:k3x:sun');
+    expect((blob.blobSeed, blob.blobKind), ('k3x', 'sun'));
+    expect(BotAvatar.resolve(name: 'a', shape: 'blobatar').blobSeed, 'a');
+    expect(BotAvatar.blobShape('', null), 'blobatar');
+    expect(BotAvatar.blobShape('k3x', null), 'blobatar:k3x');
   });
 
   test('bot parsing edge cases used by the list UI', () {

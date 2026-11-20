@@ -103,6 +103,8 @@ abstract class Strings {
   String get botProfile;
   String editBot(String bot);
   String get appearance;
+  String get blobFaceLabel;
+  String get randomizeFace;
   String get shapeLabel;
   String get colorLabel;
   String get byName;

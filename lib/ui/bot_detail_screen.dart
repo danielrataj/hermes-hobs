@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -86,10 +88,10 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
     }
   }
 
+  bool get _faceDirty => _shape != _bot.shape || _color != _bot.color;
+
   bool get _appearanceDirty =>
-      _title.text.trim() != _bot.customTitle ||
-      _shape != _bot.shape ||
-      _color != _bot.color;
+      _title.text.trim() != _bot.customTitle || _faceDirty;
 
   bool get _descriptionDirty =>
       _description.text.trim() != _bot.description.trim();
@@ -243,9 +245,12 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final s = Strings.of(context);
-    final faceColor = BotAvatar.parseColor(_color) ?? BotAvatar.autoColor(_bot);
-    final faceShape =
-        BotAvatar.normalizeShape(_shape) ?? BotAvatar.autoShape(_bot);
+    BotFace face(String? shape) => BotAvatar.resolve(
+      name: _bot.name,
+      shape: shape,
+      color: _color,
+      custom: _bot.meta['custom'] == true || _faceDirty,
+    );
     final title = _title.text.trim();
     return PopScope(
       canPop: !_dirty && !_saving,
@@ -277,12 +282,7 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
                 Center(
-                  child: BotAvatar(
-                    bot: _bot,
-                    size: 88,
-                    shape: faceShape,
-                    color: faceColor,
-                  ),
+                  child: BotAvatar(bot: _bot, size: 88, face: face(_shape)),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -298,6 +298,48 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
                   ),
                 ),
                 _SectionLabel(s.appearance),
+                _FieldLabel(s.blobFaceLabel),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final kind in [null, ...BotAvatar.blobKinds.keys])
+                      _ShapeTile(
+                        label: kind == null
+                            ? s.blobFaceLabel
+                            : '${s.blobFaceLabel}: $kind',
+                        selected:
+                            BotAvatar.isBlob(_shape) &&
+                            BotAvatar.blobKindOf(_shape) == kind,
+                        onTap: () => setState(
+                          () => _shape = BotAvatar.blobShape(
+                            BotAvatar.blobSeedOf(_shape),
+                            kind,
+                          ),
+                        ),
+                        child: BotAvatar(
+                          bot: _bot,
+                          size: 34,
+                          face: face(
+                            BotAvatar.blobShape(
+                              BotAvatar.blobSeedOf(_shape),
+                              kind,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (BotAvatar.isBlob(_shape))
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _randomizeFace,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: Text(s.randomizeFace),
+                    ),
+                  ),
+                const SizedBox(height: 16),
                 _FieldLabel(s.shapeLabel),
                 Wrap(
                   spacing: 8,
@@ -305,7 +347,7 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
                   children: [
                     _ShapeTile(
                       label: s.byName,
-                      selected: BotAvatar.normalizeShape(_shape) == null,
+                      selected: _shape == null,
                       onTap: () => setState(() => _shape = null),
                       child: Text(
                         s.autoLabel,
@@ -317,44 +359,42 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
                     for (final shape in BotAvatar.pickableShapes)
                       _ShapeTile(
                         label: shape,
-                        selected: BotAvatar.normalizeShape(_shape) == shape,
-                        // A blob the dashboard drew stays as it is stored.
-                        onTap: () => setState(
-                          () => _shape =
-                              BotAvatar.normalizeShape(_bot.shape) == shape
-                              ? _bot.shape
-                              : shape,
-                        ),
+                        selected: BotAvatar.pickedShape(_shape) == shape,
+                        onTap: () => setState(() => _shape = shape),
                         child: BotAvatar(
                           bot: _bot,
                           size: 30,
-                          shape: shape,
-                          color: faceColor,
+                          face: face(shape),
                         ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                _FieldLabel(s.colorLabel),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _Swatch(
-                      label: s.byName,
-                      color: null,
-                      selected: BotAvatar.parseColor(_color) == null,
-                      onTap: () => setState(() => _color = null),
-                    ),
-                    for (final c in _swatches())
+                // A blobatar brings its own colors.
+                if (!BotAvatar.isBlob(_shape)) ...[
+                  const SizedBox(height: 16),
+                  _FieldLabel(s.colorLabel),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
                       _Swatch(
-                        label: BotAvatar.hex(c),
-                        color: c,
-                        selected: BotAvatar.parseColor(_color) == c,
-                        onTap: () => setState(() => _color = BotAvatar.hex(c)),
+                        label: s.byName,
+                        color: null,
+                        selected: BotAvatar.parseColor(_color) == null,
+                        onTap: () => setState(() => _color = null),
                       ),
-                  ],
-                ),
+                      for (final c in _swatches())
+                        _Swatch(
+                          label: c,
+                          color: BotAvatar.parseColor(c),
+                          selected:
+                              BotAvatar.parseColor(_color) ==
+                              BotAvatar.parseColor(c),
+                          onTap: () => setState(() => _color = c),
+                        ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 20),
                 TextField(
                   controller: _title,
@@ -414,11 +454,22 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
     );
   }
 
+  /// A new face: a fresh seed, the silhouette stays.
+  void _randomizeFace() {
+    final r = Random();
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final seed = [for (var i = 0; i < 8; i++) chars[r.nextInt(36)]].join();
+    setState(
+      () => _shape = BotAvatar.blobShape(seed, BotAvatar.blobKindOf(_shape)),
+    );
+  }
+
   /// The palette, led by the bot's own color when it is not one of them.
-  List<Color> _swatches() {
+  List<String> _swatches() {
     final own = BotAvatar.parseColor(_bot.color);
+    final known = BotAvatar.palette.map(BotAvatar.parseColor);
     return [
-      if (own != null && !BotAvatar.palette.contains(own)) own,
+      if (own != null && !known.contains(own)) _bot.color!,
       ...BotAvatar.palette,
     ];
   }
