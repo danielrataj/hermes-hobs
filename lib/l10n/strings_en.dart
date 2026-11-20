@@ -71,9 +71,7 @@ class StringsEn extends Strings {
   @override
   String get filterOlder => 'Older';
   @override
-  String unreadCount(int n) => 'Unread: $n';
-  @override
-  String get noUnread => 'Nothing unread';
+  String get account => 'Account';
   @override
   String get settings => 'Settings';
   @override

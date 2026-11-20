@@ -146,40 +146,19 @@ class _BotListState extends State<_BotList> {
     final unread = app.bots.where(app.isUnread).length;
     return Scaffold(
       appBar: AppBar(
-        title: Text(s.botsTitle),
+        centerTitle: false,
+        titleSpacing: 16,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(s.botsTitle),
+            _ConnectionLine(status: app.connection),
+          ],
+        ),
         actions: [
-          _ConnectionDot(status: app.connection),
-          IconButton(
-            tooltip: unread > 0 ? s.unreadCount(unread) : s.noUnread,
-            onPressed: () => app.setFilter(
-              app.filter == BotFilter.unread ? BotFilter.all : BotFilter.unread,
-            ),
-            icon: Badge(
-              isLabelVisible: unread > 0,
-              label: Text('$unread'),
-              child: const Icon(Icons.notifications_none),
-            ),
-          ),
-          PopupMenuButton<String>(
-            onSelected: (v) {
-              if (v == 'logout') app.logout();
-              if (v == 'settings') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                );
-              }
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                enabled: false,
-                child: Text(
-                  '${app.username} @ ${Uri.tryParse(app.serverUrl)?.host ?? app.serverUrl}',
-                ),
-              ),
-              PopupMenuItem(value: 'settings', child: Text(s.settings)),
-              PopupMenuItem(value: 'logout', child: Text(s.signOut)),
-            ],
-          ),
+          _AccountButton(app: app),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
@@ -216,7 +195,9 @@ class _BotListState extends State<_BotList> {
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: ChoiceChip(
-                      label: Text(label),
+                      label: f == BotFilter.unread && unread > 0
+                          ? _CountLabel(label: label, count: unread)
+                          : Text(label),
                       selected: app.filter == f,
                       onSelected: (_) => app.setFilter(f),
                       visualDensity: VisualDensity.compact,
@@ -483,29 +464,165 @@ class _BotRow extends StatelessWidget {
   }
 }
 
-class _ConnectionDot extends StatelessWidget {
-  const _ConnectionDot({required this.status});
+/// The connection state in words under the screen title, so the colored
+/// mark never has to be decoded on its own.
+class _ConnectionLine extends StatelessWidget {
+  const _ConnectionLine({required this.status});
 
   final ConnectionStatus status;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final hobs = HobsColors.of(context);
     final s = Strings.of(context);
     final (color, label) = switch (status) {
       ConnectionStatus.connected => (hobs.working, s.connected),
       ConnectionStatus.connecting => (hobs.lantern, s.connecting),
       ConnectionStatus.disconnected => (
-        Theme.of(context).colorScheme.error,
+        theme.colorScheme.error,
         s.disconnected,
       ),
     };
-    return Tooltip(
-      message: label,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: Icon(Icons.circle, size: 10, color: color),
+    final connected = status == ConnectionStatus.connected;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.circle, size: 8, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: connected ? theme.colorScheme.onSurfaceVariant : color,
+            fontWeight: connected ? FontWeight.w400 : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Filter chip label with the number of waiting bots next to it.
+class _CountLabel extends StatelessWidget {
+  const _CountLabel({required this.label, required this.count});
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label),
+        const SizedBox(width: 6),
+        Container(
+          constraints: const BoxConstraints(minWidth: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: ShapeDecoration(
+            shape: const StadiumBorder(),
+            color: cs.tertiaryContainer,
+          ),
+          child: Text(
+            '$count',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onTertiaryContainer,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The signed-in user's initial. Opens the account menu, where every action
+/// carries its own icon and label.
+class _AccountButton extends StatelessWidget {
+  const _AccountButton({required this.app});
+
+  final AppState app;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final s = Strings.of(context);
+    final name = app.username.trim();
+    final host = Uri.tryParse(app.serverUrl)?.host ?? '';
+    return PopupMenuButton<String>(
+      tooltip: s.account,
+      position: PopupMenuPosition.under,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      onSelected: (v) {
+        if (v == 'logout') app.logout();
+        if (v == 'settings') {
+          Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          enabled: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: cs.onSurface,
+                ),
+              ),
+              Text(
+                host.isEmpty ? app.serverUrl : host,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'settings',
+          child: _MenuRow(icon: Icons.settings_outlined, label: s.settings),
+        ),
+        PopupMenuItem(
+          value: 'logout',
+          child: _MenuRow(icon: Icons.logout, label: s.signOut),
+        ),
+      ],
+      icon: CircleAvatar(
+        radius: 16,
+        backgroundColor: cs.primaryContainer,
+        foregroundColor: cs.onPrimaryContainer,
+        child: name.isEmpty
+            ? const Icon(Icons.person_outline, size: 18)
+            : Text(
+                name.characters.first.toUpperCase(),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: cs.onPrimaryContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
       ),
+    );
+  }
+}
+
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [Icon(icon, size: 20), const SizedBox(width: 12), Text(label)],
     );
   }
 }
