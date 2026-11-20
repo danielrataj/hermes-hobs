@@ -32,12 +32,19 @@ class GatewayEvent {
 /// A request the server sends to the client (`approval`, `clarify`, ...).
 /// Answer exactly once with [respond] or [decline].
 class ServerRequest {
-  ServerRequest(this._rpc, this.id, this.method, this.params);
+  ServerRequest(this._rpc, this.id, this.method, this.params)
+    : detached = false;
+
+  /// A request opened before this socket attached (`open_requests` from
+  /// `session.resume`): answered through the `request.answer` RPC.
+  ServerRequest.detached(this._rpc, this.id, this.method, this.params)
+    : detached = true;
 
   final HermesRpc _rpc;
   final Object id;
   final String method;
   final Map<String, dynamic> params;
+  final bool detached;
   bool _answered = false;
 
   String? get sessionId => params['session_id'] as String?;
@@ -46,7 +53,11 @@ class ServerRequest {
   void respond(Map<String, dynamic> result) {
     if (_answered) return;
     _answered = true;
-    _rpc._sendRaw({'jsonrpc': '2.0', 'id': id, 'result': result});
+    if (detached) {
+      _rpc.request('request.answer', {'id': id, 'result': result}).ignore();
+    } else {
+      _rpc._sendRaw({'jsonrpc': '2.0', 'id': id, 'result': result});
+    }
   }
 
   void decline() {
@@ -186,8 +197,11 @@ class HermesRpc {
   Future<dynamic> request(String method, [Map<String, dynamic>? params]) =>
       requestWith(method, params);
 
-  Future<dynamic> requestWith(String method, Map<String, dynamic>? params,
-      {Duration timeout = const Duration(seconds: 60)}) {
+  Future<dynamic> requestWith(
+    String method,
+    Map<String, dynamic>? params, {
+    Duration timeout = const Duration(seconds: 60),
+  }) {
     final ws = _ws;
     if (ws == null || ws.readyState != WebSocket.open) {
       return Future.error(RpcException(-1, 'Not connected'));
@@ -195,16 +209,14 @@ class HermesRpc {
     final id = 'c${_nextId++}';
     final c = Completer<dynamic>();
     _pending[id] = c;
-    _sendRaw({
-      'jsonrpc': '2.0',
-      'id': id,
-      'method': method,
-      'params': ?params,
-    });
-    return c.future.timeout(timeout, onTimeout: () {
-      _pending.remove(id);
-      throw RpcException(-2, '$method timed out');
-    });
+    _sendRaw({'jsonrpc': '2.0', 'id': id, 'method': method, 'params': ?params});
+    return c.future.timeout(
+      timeout,
+      onTimeout: () {
+        _pending.remove(id);
+        throw RpcException(-2, '$method timed out');
+      },
+    );
   }
 
   void _sendRaw(Map<String, dynamic> frame) {
@@ -230,7 +242,11 @@ class HermesRpc {
     } else if (method is String && id != null) {
       final params = decoded['params'];
       final req = ServerRequest(
-          this, id, method, params is Map<String, dynamic> ? params : <String, dynamic>{});
+        this,
+        id,
+        method,
+        params is Map<String, dynamic> ? params : <String, dynamic>{},
+      );
       if (_requests.hasListener) {
         _requests.add(req);
       } else {
@@ -241,11 +257,13 @@ class HermesRpc {
       if (c == null || c.isCompleted) return;
       final err = decoded['error'];
       if (err is Map) {
-        c.completeError(RpcException(
-          (err['code'] as num?)?.toInt() ?? -32000,
-          err['message']?.toString() ?? 'error',
-          err['data'],
-        ));
+        c.completeError(
+          RpcException(
+            (err['code'] as num?)?.toInt() ?? -32000,
+            err['message']?.toString() ?? 'error',
+            err['data'],
+          ),
+        );
       } else {
         c.complete(decoded['result']);
       }
@@ -260,12 +278,14 @@ class HermesRpc {
       _afterReady();
       return;
     }
-    _events.add(GatewayEvent(
-      type,
-      params['session_id'] as String?,
-      payload is Map<String, dynamic> ? payload : <String, dynamic>{},
-      (params['seq'] as num?)?.toInt(),
-    ));
+    _events.add(
+      GatewayEvent(
+        type,
+        params['session_id'] as String?,
+        payload is Map<String, dynamic> ? payload : <String, dynamic>{},
+        (params['seq'] as num?)?.toInt(),
+      ),
+    );
   }
 
   void _onClosed(WebSocket ws, int? code, String? reason) {
@@ -273,7 +293,9 @@ class HermesRpc {
     _ws = null;
     _pingTimer?.cancel();
     for (final c in _pending.values) {
-      if (!c.isCompleted) c.completeError(RpcException(-1, 'Connection closed'));
+      if (!c.isCompleted) {
+        c.completeError(RpcException(-1, 'Connection closed'));
+      }
     }
     _pending.clear();
     if (_ready != null && !_ready!.isCompleted) {

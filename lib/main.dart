@@ -22,7 +22,8 @@ class HermesBotsApp extends StatefulWidget {
   State<HermesBotsApp> createState() => _HermesBotsAppState();
 }
 
-class _HermesBotsAppState extends State<HermesBotsApp> with WidgetsBindingObserver {
+class _HermesBotsAppState extends State<HermesBotsApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -53,7 +54,9 @@ class _HermesBotsAppState extends State<HermesBotsApp> with WidgetsBindingObserv
       theme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.light),
       darkTheme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.dark),
       home: switch (phase) {
-        AuthPhase.loading => const Scaffold(body: Center(child: CircularProgressIndicator())),
+        AuthPhase.loading => const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
         AuthPhase.signedOut => const LoginScreen(),
         AuthPhase.signedIn => const BotsScreen(),
       },

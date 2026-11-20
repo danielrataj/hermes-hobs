@@ -4,14 +4,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_bots/api/hermes_http.dart';
 import 'package:hermes_bots/api/hermes_rpc.dart';
 import 'package:hermes_bots/api/models.dart';
+import 'package:hermes_bots/state/app_state.dart';
 import 'package:hermes_bots/state/chat_controller.dart';
 
 import 'fake_hermes_server.dart';
 
-Future<void> waitFor(bool Function() cond, {Duration timeout = const Duration(seconds: 5)}) async {
+Future<void> waitFor(
+  bool Function() cond, {
+  Duration timeout = const Duration(seconds: 5),
+}) async {
   final end = DateTime.now().add(timeout);
   while (!cond()) {
-    if (DateTime.now().isAfter(end)) throw TimeoutException('condition not met');
+    if (DateTime.now().isAfter(end)) {
+      throw TimeoutException('condition not met');
+    }
     await Future<void>.delayed(const Duration(milliseconds: 10));
   }
 }
@@ -28,9 +34,24 @@ void main() {
 
   Future<HermesHttp> signedIn() async {
     final http = HermesHttp(baseUrl: server.baseUrl);
-    await http.postJson('/auth/password-login',
-        {'provider': 'basic', 'username': 'u', 'password': 'p', 'next': ''});
+    await http.postJson('/auth/password-login', {
+      'provider': 'basic',
+      'username': 'u',
+      'password': 'p',
+      'next': '',
+    });
     return http;
+  }
+
+  Future<List<Bot>> roster(HermesRpc rpc) async {
+    await rpc.connect();
+    final res =
+        await rpc.request('profiles.list', {'include_sessions': true}) as Map;
+    return (res['profiles'] as List)
+        .cast<Map<String, dynamic>>()
+        .map(Bot.fromJson)
+        .where((b) => !b.hidden)
+        .toList();
   }
 
   test('login stores session cookies and authenticates REST calls', () async {
@@ -39,12 +60,22 @@ void main() {
     http.onCookiesChanged = (c) => persisted = c;
 
     await expectLater(
-      http.postJson('/auth/password-login',
-          {'provider': 'basic', 'username': 'u', 'password': 'bad', 'next': ''}),
-      throwsA(isA<HermesHttpException>().having((e) => e.statusCode, 'status', 401)),
+      http.postJson('/auth/password-login', {
+        'provider': 'basic',
+        'username': 'u',
+        'password': 'bad',
+        'next': '',
+      }),
+      throwsA(
+        isA<HermesHttpException>().having((e) => e.statusCode, 'status', 401),
+      ),
     );
-    await http.postJson('/auth/password-login',
-        {'provider': 'basic', 'username': 'u', 'password': 'p', 'next': ''});
+    await http.postJson('/auth/password-login', {
+      'provider': 'basic',
+      'username': 'u',
+      'password': 'p',
+      'next': '',
+    });
 
     expect(http.hasSession, isTrue);
     expect(persisted, {
@@ -57,54 +88,173 @@ void main() {
     http.close();
   });
 
-  test('profiles parse into bots with display-name fallback', () async {
-    final http = await signedIn();
-    final res = await http.getJson('/api/profiles') as Map;
-    final bots = (res['profiles'] as List).cast<Map<String, dynamic>>().map(Bot.fromJson).toList();
-    expect(bots.map((b) => b.displayName), ['zeta', 'Hermes']);
-    expect(bots[1].isDefault, isTrue);
-    expect(bots[1].model, 'hermes-4');
-    expect(bots[1].initials, 'H');
-    http.close();
+  test(
+    'roster: Bot Mode meta, canonical session, hidden bots dropped',
+    () async {
+      final http = await signedIn();
+      final rpc = HermesRpc(http);
+      final bots = await roster(rpc);
+
+      expect(bots.map((b) => b.name), ['cto', 'default']);
+      final cto = bots.first;
+      expect(
+        cto.displayName,
+        'CTO',
+        reason: 'ui_meta title wins over display_name',
+      );
+      expect(cto.sectionId, 's1');
+      expect(cto.sectionName, 'Vibee.one');
+      expect(cto.pinned, isTrue);
+      expect(cto.canonical!.resumeId, 'botchat-tip');
+      expect(cto.preview, 'Analytik overil zdroje');
+      expect(bots[1].displayName, 'default');
+      expect(bots[1].canonical, isNull);
+
+      await rpc.dispose();
+      http.close();
+    },
+  );
+
+  test('sections: folders sorted, unassigned last, pinned first', () {
+    final app = AppState();
+    app.bots = [
+      Bot(name: 'a', displayName: 'Alfa'),
+      Bot(
+        name: 'z',
+        displayName: 'Zeta',
+        sectionId: 'f',
+        sectionName: 'Finance',
+      ),
+      Bot(
+        name: 'o',
+        displayName: 'Omega',
+        sectionId: 'v',
+        sectionName: 'Vibee.one',
+      ),
+      Bot(
+        name: 'p',
+        displayName: 'Pinned',
+        sectionId: 'v',
+        sectionName: 'Vibee.one',
+        pinned: true,
+      ),
+    ];
+    final s = app.sections;
+    expect(s.map((x) => x.title), ['Finance', 'Vibee.one', 'Nezařazení']);
+    expect(s[1].bots.map((b) => b.name), ['p', 'o']);
+    expect(app.hasFolders, isTrue);
+
+    app.setQuery('zet');
+    expect(app.sections.single.bots.single.name, 'z');
   });
 
-  test('chat: ticket handshake, session.create, streamed reply with tools', () async {
+  test(
+    'opening a bot with a Bot Chat resumes it and folds tool rows',
+    () async {
+      final http = await signedIn();
+      final rpc = HermesRpc(http);
+      final cto = (await roster(rpc)).first;
+      final chat = ChatController(rpc: rpc, bot: cto);
+
+      await chat.start();
+      expect(server.resumed, ['botchat-tip']);
+      expect(server.createParams, isEmpty);
+      expect(chat.phase, ChatPhase.idle);
+      expect(chat.reasoningEffort, 'high');
+      expect(chat.messages.map((m) => m.role), [
+        ChatRole.user,
+        ChatRole.activity,
+        ChatRole.assistant,
+      ]);
+      expect(chat.messages[1].tools.map((t) => t.name), [
+        'skill_view',
+        'terminal',
+      ]);
+      expect(chat.lastPrompt, 'nastav monitoring');
+
+      chat.dispose();
+      await rpc.dispose();
+      http.close();
+    },
+  );
+
+  test('first chat with a bot creates and titles its Bot Chat', () async {
     final http = await signedIn();
     final rpc = HermesRpc(http);
-    final bot = Bot(name: 'default', displayName: 'Hermes', description: '');
-    final chat = ChatController(rpc: rpc, bot: bot);
+    final plain = (await roster(rpc))[1];
+    final chat = ChatController(rpc: rpc, bot: plain);
 
     await chat.start();
-    expect(chat.phase, ChatPhase.idle);
-    expect(chat.model, 'hermes-4');
+    expect(server.createParams.single, {
+      'profile': 'default',
+      'title': 'Bot Chat',
+      'hidden': true,
+      'follow_profile_config': true,
+      'close_on_disconnect': false,
+    });
+    expect(server.titled, ['Bot Chat']);
     expect(server.capabilitiesAnnounced, isTrue);
-    expect(server.lastWsOrigin, isNull, reason: 'native client must not send a foreign Origin');
-    final create = server.received.firstWhere((m) => m['method'] == 'session.create');
-    expect(create['params'], {'profile': 'default', 'close_on_disconnect': false});
-
-    await chat.send('Ahoj');
-    await waitFor(() => chat.phase == ChatPhase.idle);
-
-    expect(chat.messages.map((m) => m.role), [ChatRole.user, ChatRole.assistant]);
-    final reply = chat.messages.last;
-    expect(reply.text, 'Ahoj, svete!');
-    expect(reply.streaming, isFalse);
-    expect(reply.tools.single.name, 'web_search');
-    expect(reply.tools.single.state, ToolState.done);
-    final submit = server.received.firstWhere((m) => m['method'] == 'prompt.submit');
-    expect(submit['params'], {'session_id': 'rt1', 'text': 'Ahoj'});
+    expect(
+      server.lastWsOrigin,
+      isNull,
+      reason: 'native client must not send a foreign Origin',
+    );
 
     chat.dispose();
     await rpc.dispose();
     http.close();
   });
 
-  test('chat: approval request is surfaced and answered', () async {
+  test('streamed turn: text, activity row, text, final', () async {
+    final http = await signedIn();
+    final rpc = HermesRpc(http);
+    final chat = ChatController(
+      rpc: rpc,
+      bot: Bot(name: 'default', displayName: 'Hermes'),
+    );
+    await chat.start();
+
+    await chat.send('Ahoj');
+    await waitFor(() => chat.phase == ChatPhase.idle);
+
+    expect(chat.messages.map((m) => m.role), [
+      ChatRole.user,
+      ChatRole.assistant,
+      ChatRole.activity,
+      ChatRole.assistant,
+    ]);
+    expect(chat.messages[1].text, 'Ahoj, ');
+    expect(chat.messages[2].tools.single.name, 'web_search');
+    expect(chat.messages[2].tools.single.state, ToolState.done);
+    expect(chat.messages.last.text, 'Ahoj, svete!');
+    expect(chat.messages.every((m) => !m.streaming), isTrue);
+    final submit = server.received.firstWhere(
+      (m) => m['method'] == 'prompt.submit',
+    );
+    expect(submit['params'], {'session_id': 'rt1', 'text': 'Ahoj'});
+
+    await chat.setReasoningEffort('low');
+    expect(server.configSets.single, {
+      'session_id': 'rt1',
+      'key': 'reasoning',
+      'value': 'low',
+      'scope': 'session',
+    });
+    expect(chat.reasoningEffort, 'low');
+
+    chat.dispose();
+    await rpc.dispose();
+    http.close();
+  });
+
+  test('approval request is surfaced and answered', () async {
     server.askApproval = true;
     final http = await signedIn();
     final rpc = HermesRpc(http);
     final chat = ChatController(
-        rpc: rpc, bot: Bot(name: 'default', displayName: 'Hermes', description: ''));
+      rpc: rpc,
+      bot: Bot(name: 'default', displayName: 'Hermes'),
+    );
     await chat.start();
 
     unawaited(chat.send('do it'));
@@ -119,6 +269,24 @@ void main() {
     expect(chat.approval, isNull);
 
     chat.dispose();
+    await rpc.dispose();
+    http.close();
+  });
+
+  test('cron jobs parse from cron.manage list', () async {
+    final http = await signedIn();
+    final rpc = HermesRpc(http);
+    await rpc.connect();
+    final res = await rpc.request('cron.manage', {
+      'action': 'list',
+      'profile': 'cto',
+    }) as Map;
+    final jobs = (res['jobs'] as List)
+        .cast<Map<String, dynamic>>()
+        .map(CronJob.fromJson)
+        .toList();
+    expect(jobs.single.name, 'Vibee poptavky');
+    expect(jobs.single.nextRun, isNotNull);
     await rpc.dispose();
     http.close();
   });

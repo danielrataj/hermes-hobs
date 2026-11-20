@@ -42,10 +42,10 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       await context.read<AppState>().login(
-            serverUrl: _server.text.trim(),
-            username: _user.text.trim(),
-            password: _pass.text,
-          );
+        serverUrl: _server.text.trim(),
+        username: _user.text.trim(),
+        password: _pass.text,
+      );
     } catch (e) {
       if (mounted) setState(() => _error = AppState.describeError(e));
     } finally {
@@ -68,25 +68,39 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(Icons.smart_toy_outlined, size: 56, color: theme.colorScheme.primary),
+                    Icon(
+                      Icons.smart_toy_outlined,
+                      size: 56,
+                      color: theme.colorScheme.primary,
+                    ),
                     const SizedBox(height: 12),
-                    Text('Hermes Bots',
-                        textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
+                    Text(
+                      'Hermes Bots',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineSmall,
+                    ),
                     const SizedBox(height: 4),
-                    Text('Přihlášení k Hermes Agent dashboardu',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                    Text(
+                      'Přihlášení k Hermes Agent dashboardu',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                     const SizedBox(height: 28),
                     TextFormField(
                       controller: _server,
                       decoration: const InputDecoration(
-                          labelText: 'Server', prefixIcon: Icon(Icons.dns_outlined)),
+                        labelText: 'Server',
+                        prefixIcon: Icon(Icons.dns_outlined),
+                      ),
                       keyboardType: TextInputType.url,
                       autocorrect: false,
                       validator: (v) {
                         final u = Uri.tryParse((v ?? '').trim());
-                        if (u == null || !(u.scheme == 'https' || u.scheme == 'http') || u.host.isEmpty) {
+                        if (u == null ||
+                            !(u.scheme == 'https' || u.scheme == 'http') ||
+                            u.host.isEmpty) {
                           return 'Zadej URL, např. https://hermes.devrel.cz';
                         }
                         return null;
@@ -96,16 +110,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextFormField(
                       controller: _user,
                       decoration: const InputDecoration(
-                          labelText: 'Uživatel', prefixIcon: Icon(Icons.person_outline)),
+                        labelText: 'Uživatel',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
                       autocorrect: false,
                       autofillHints: const [AutofillHints.username],
-                      validator: (v) => (v ?? '').trim().isEmpty ? 'Povinné' : null,
+                      validator: (v) =>
+                          (v ?? '').trim().isEmpty ? 'Povinné' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _pass,
                       decoration: const InputDecoration(
-                          labelText: 'Heslo', prefixIcon: Icon(Icons.lock_outline)),
+                        labelText: 'Heslo',
+                        prefixIcon: Icon(Icons.lock_outline),
+                      ),
                       obscureText: true,
                       autofillHints: const [AutofillHints.password],
                       onFieldSubmitted: (_) => _submit(),
@@ -113,14 +132,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 16),
-                      Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+                      Text(
+                        _error!,
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
                     ],
                     const SizedBox(height: 24),
                     FilledButton(
                       onPressed: _busy ? null : _submit,
                       child: _busy
                           ? const SizedBox(
-                              height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Text('Přihlásit'),
                     ),
                   ],

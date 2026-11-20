@@ -24,7 +24,10 @@ class CredentialsStore {
     return p.getString(_kUser) ?? '';
   }
 
-  Future<void> saveLogin({required String serverUrl, required String username}) async {
+  Future<void> saveLogin({
+    required String serverUrl,
+    required String username,
+  }) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_kServer, serverUrl);
     await p.setString(_kUser, username);

@@ -28,8 +28,8 @@ class HermesHttpException implements Exception {
 /// headers into one comma-joined string, which breaks on `Expires=` dates.
 class HermesHttp {
   HermesHttp({required Uri baseUrl, Map<String, String>? cookies})
-      : baseUrl = _normalizeBase(baseUrl),
-        cookies = {...?cookies};
+    : baseUrl = _normalizeBase(baseUrl),
+      cookies = {...?cookies};
 
   final Uri baseUrl;
   final Map<String, String> cookies;
@@ -57,7 +57,9 @@ class HermesHttp {
   /// Origin the dashboard expects on same-origin requests and WS upgrades.
   String get origin {
     final defaultPort = baseUrl.scheme == 'https' ? 443 : 80;
-    final port = baseUrl.hasPort && baseUrl.port != defaultPort ? ':${baseUrl.port}' : '';
+    final port = baseUrl.hasPort && baseUrl.port != defaultPort
+        ? ':${baseUrl.port}'
+        : '';
     return '${baseUrl.scheme}://${baseUrl.host}$port';
   }
 
@@ -69,8 +71,11 @@ class HermesHttp {
   Future<dynamic> getJson(String path, {Map<String, String>? query}) =>
       _send('GET', path, query: query);
 
-  Future<dynamic> postJson(String path, Object? body, {Map<String, String>? query}) =>
-      _send('POST', path, body: body, query: query);
+  Future<dynamic> postJson(
+    String path,
+    Object? body, {
+    Map<String, String>? query,
+  }) => _send('POST', path, body: body, query: query);
 
   Future<dynamic> _send(
     String method,
@@ -112,24 +117,31 @@ class HermesHttp {
       // The gate redirects unauthenticated HTML routes to /login.
       throw HermesHttpException(401, 'Not signed in', body: decoded);
     }
-    throw HermesHttpException(resp.statusCode, _errorMessage(decoded, resp.reasonPhrase),
-        body: decoded);
+    throw HermesHttpException(
+      resp.statusCode,
+      _errorMessage(decoded, resp.reasonPhrase),
+      body: decoded,
+    );
   }
 
   static String _errorMessage(Object? decoded, String fallback) {
     if (decoded is Map) {
-      final detail = decoded['detail'] ?? decoded['error'] ?? decoded['message'];
+      final detail =
+          decoded['detail'] ?? decoded['error'] ?? decoded['message'];
       if (detail is String && detail.isNotEmpty) return detail;
       if (detail != null) return detail.toString();
     }
-    if (decoded is String && decoded.isNotEmpty && decoded.length < 300) return decoded;
+    if (decoded is String && decoded.isNotEmpty && decoded.length < 300) {
+      return decoded;
+    }
     return fallback;
   }
 
   void _absorbCookies(HttpClientResponse resp) {
     var changed = false;
     // `resp.cookies` throws on a malformed header; parse raw values defensively.
-    for (final raw in resp.headers[HttpHeaders.setCookieHeader] ?? const <String>[]) {
+    for (final raw
+        in resp.headers[HttpHeaders.setCookieHeader] ?? const <String>[]) {
       final first = raw.split(';').first;
       final eq = first.indexOf('=');
       if (eq <= 0) continue;
@@ -139,7 +151,8 @@ class HermesHttp {
         value = value.substring(1, value.length - 1);
       }
       final lower = raw.toLowerCase();
-      final expired = value.isEmpty ||
+      final expired =
+          value.isEmpty ||
           RegExp(r'max-age=0(?!\d)').hasMatch(lower) ||
           lower.contains('expires=thu, 01 jan 1970');
       if (expired) {
