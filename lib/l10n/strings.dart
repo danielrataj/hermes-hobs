@@ -67,9 +67,9 @@ abstract class Strings {
   String get errorBadServerUrl;
   String get errorNoSessionCookie;
 
-  // --- bot list ------------------------------------------------------------
-  String get botsTitle;
-  String get pickBot;
+  // --- hob list ------------------------------------------------------------
+  String get hobsTitle;
+  String get pickHob;
   String get filterAll;
   String get filterUnread;
   String get filterPinned;
@@ -79,9 +79,9 @@ abstract class Strings {
   String get account;
   String get settings;
   String get signOut;
-  String get searchBots;
+  String get searchHobs;
   String get retry;
-  String get noBots;
+  String get noHobs;
   String get noMatches;
   String get working;
   String get noMessagesYet;
@@ -99,9 +99,9 @@ abstract class Strings {
   String get folderOptions;
   String get moveFolder;
 
-  // --- bot profile ---------------------------------------------------------
-  String get botProfile;
-  String editBot(String bot);
+  // --- hob profile ---------------------------------------------------------
+  String get hobProfile;
+  String editHob(String hob);
   String get appearance;
   String get blobFaceLabel;
   String get randomizeFace;
@@ -109,9 +109,9 @@ abstract class Strings {
   String get colorLabel;
   String get byName;
   String get autoLabel;
-  String get botTitleLabel;
-  String get botDescriptionLabel;
-  String get botDescriptionHint;
+  String get hobTitleLabel;
+  String get hobDescriptionLabel;
+  String get hobDescriptionHint;
   String get modelSection;
   String get providerLabel;
   String get modelLabel;
@@ -123,9 +123,9 @@ abstract class Strings {
   String get confirmModelTitle;
   String get confirmModelFallback;
   String get switchModel;
-  String botSaved(String bot);
-  String botSaveFailed(String reason);
-  String get botSaveRefused;
+  String hobSaved(String hob);
+  String hobSaveFailed(String reason);
+  String get hobSaveRefused;
   String get discardChangesTitle;
   String get discardChanges;
   String get keepEditing;
@@ -141,7 +141,7 @@ abstract class Strings {
   String workingOn(String? status);
   String get workingInBackground;
   String activeAgo(String age);
-  String writeTo(String bot);
+  String writeTo(String hob);
   String get interruptedTag;
   String get copy;
   String get copied;
@@ -160,7 +160,7 @@ abstract class Strings {
   String get allowSession;
   String get allowAlways;
   String get deny;
-  String get botAsks;
+  String get hobAsks;
   String get orOwnAnswer;
   String get answerHint;
   String get skip;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// "Moss and lantern": soft moss-tinted neutrals, a moss-green accent for
 /// actions and your own messages, and warm lantern yellow kept for the happy
-/// moments (unread, approvals). Neutrals stay quiet so the bots' own avatar
+/// moments (unread, approvals). Neutrals stay quiet so the hobs' own avatar
 /// colors carry the color on the list.
 ///
 /// Shape rule: buttons and chips are pills, text fields 14, cards and list
@@ -171,7 +171,7 @@ abstract final class HobsTheme {
 class HobsColors extends ThemeExtension<HobsColors> {
   const HobsColors({required this.working, required this.lantern});
 
-  /// A bot that is online or busy; also used as text ("pracuje").
+  /// A hob that is online or busy; also used as text ("pracuje").
   final Color working;
 
   /// Lantern glow for small marks on the surface: unread, connecting.

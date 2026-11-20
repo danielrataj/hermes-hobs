@@ -43,13 +43,13 @@ void main() {
     return http;
   }
 
-  Future<List<Bot>> roster(HermesRpc rpc) async {
+  Future<List<Hob>> roster(HermesRpc rpc) async {
     await rpc.connect();
     final res =
         await rpc.request('profiles.list', {'include_sessions': true}) as Map;
     return (res['profiles'] as List)
         .cast<Map<String, dynamic>>()
-        .map(Bot.fromJson)
+        .map(Hob.fromJson)
         .where((b) => !b.hidden)
         .toList();
   }
@@ -89,14 +89,14 @@ void main() {
   });
 
   test(
-    'roster: Bot Mode meta, canonical session, hidden bots dropped',
+    'roster: Bot Mode meta, canonical session, hidden hobs dropped',
     () async {
       final http = await signedIn();
       final rpc = HermesRpc(http);
-      final bots = await roster(rpc);
+      final hobs = await roster(rpc);
 
-      expect(bots.map((b) => b.name), ['cto', 'default']);
-      final cto = bots.first;
+      expect(hobs.map((b) => b.name), ['cto', 'default']);
+      final cto = hobs.first;
       expect(
         cto.displayName,
         'CTO',
@@ -107,8 +107,8 @@ void main() {
       expect(cto.pinned, isTrue);
       expect(cto.canonical!.resumeId, 'botchat-tip');
       expect(cto.preview, 'Analytik overil zdroje');
-      expect(bots[1].displayName, 'default');
-      expect(bots[1].canonical, isNull);
+      expect(hobs[1].displayName, 'default');
+      expect(hobs[1].canonical, isNull);
 
       await rpc.dispose();
       http.close();
@@ -117,21 +117,21 @@ void main() {
 
   test('sections: folders sorted, unassigned last, pinned first', () {
     final app = AppState();
-    app.bots = [
-      Bot(name: 'a', displayName: 'Alfa'),
-      Bot(
+    app.hobs = [
+      Hob(name: 'a', displayName: 'Alfa'),
+      Hob(
         name: 'z',
         displayName: 'Zeta',
         sectionId: 'f',
         sectionName: 'Finance',
       ),
-      Bot(
+      Hob(
         name: 'o',
         displayName: 'Omega',
         sectionId: 'v',
         sectionName: 'Vibee.one',
       ),
-      Bot(
+      Hob(
         name: 'p',
         displayName: 'Pinned',
         sectionId: 'v',
@@ -141,20 +141,20 @@ void main() {
     ];
     final s = app.sections;
     expect(s.map((x) => x.title), ['Finance', 'Vibee.one', 'Nezařazení']);
-    expect(s[1].bots.map((b) => b.name), ['p', 'o']);
+    expect(s[1].hobs.map((b) => b.name), ['p', 'o']);
     expect(app.hasFolders, isTrue);
 
     app.setQuery('zet');
-    expect(app.sections.single.bots.single.name, 'z');
+    expect(app.sections.single.hobs.single.name, 'z');
   });
 
   test(
-    'opening a bot with a Bot Chat resumes it and folds tool rows',
+    'opening a hob with a Bot Chat resumes it and folds tool rows',
     () async {
       final http = await signedIn();
       final rpc = HermesRpc(http);
       final cto = (await roster(rpc)).first;
-      final chat = ChatController(rpc: rpc, bot: cto);
+      final chat = ChatController(rpc: rpc, hob: cto);
 
       await chat.start();
       expect(server.resumed, ['botchat-tip']);
@@ -178,11 +178,11 @@ void main() {
     },
   );
 
-  test('first chat with a bot creates and titles its Bot Chat', () async {
+  test('first chat with a hob creates and titles its Bot Chat', () async {
     final http = await signedIn();
     final rpc = HermesRpc(http);
     final plain = (await roster(rpc))[1];
-    final chat = ChatController(rpc: rpc, bot: plain);
+    final chat = ChatController(rpc: rpc, hob: plain);
 
     await chat.start();
     expect(server.createParams.single, {
@@ -210,7 +210,7 @@ void main() {
     final rpc = HermesRpc(http);
     final chat = ChatController(
       rpc: rpc,
-      bot: Bot(name: 'default', displayName: 'Hermes'),
+      hob: Hob(name: 'default', displayName: 'Hermes'),
     );
     await chat.start();
 
@@ -264,7 +264,7 @@ void main() {
     final rpc = HermesRpc(http);
     final chat = ChatController(
       rpc: rpc,
-      bot: Bot(name: 'default', displayName: 'Hermes'),
+      hob: Hob(name: 'default', displayName: 'Hermes'),
     );
     await chat.start();
 
@@ -321,7 +321,7 @@ void main() {
       final rpc = HermesRpc(http);
       final cto = (await roster(rpc)).first;
       expect(rpc.canonical, isTrue);
-      final chat = ChatController(rpc: rpc, bot: cto);
+      final chat = ChatController(rpc: rpc, hob: cto);
 
       await chat.start();
       expect(chat.error, isNull);
@@ -354,7 +354,7 @@ void main() {
       final http = await signedIn();
       final rpc = HermesRpc(http);
       final plain = (await roster(rpc))[1];
-      final chat = ChatController(rpc: rpc, bot: plain);
+      final chat = ChatController(rpc: rpc, hob: plain);
 
       await chat.start();
       expect(chat.error, isNull);
@@ -387,7 +387,7 @@ void main() {
         final rpc = HermesRpc(http);
         final chat = ChatController(
           rpc: rpc,
-          bot: Bot(name: 'default', displayName: 'Hermes'),
+          hob: Hob(name: 'default', displayName: 'Hermes'),
         );
         await chat.start();
 
@@ -447,7 +447,7 @@ void main() {
         final http = await signedIn();
         final rpc = HermesRpc(http);
         final cto = (await roster(rpc)).first;
-        final chat = ChatController(rpc: rpc, bot: cto);
+        final chat = ChatController(rpc: rpc, hob: cto);
         await chat.start();
 
         await chat.send('ahoj');

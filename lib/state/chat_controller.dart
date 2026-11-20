@@ -8,21 +8,21 @@ import '../l10n/strings.dart';
 
 enum ChatPhase { starting, idle, running, failed }
 
-/// The bot's forever-chat ("Bot Chat"), as the Hermes dashboard uses it.
+/// The hob's forever-chat ("Bot Chat"), as the Hermes dashboard uses it.
 ///
 /// Open: `session.resume` the profile's canonical session (history included),
-/// or, on a bot's first-ever chat, `session.create {title: "Bot Chat"}` and
+/// or, on a hob's first-ever chat, `session.create {title: "Bot Chat"}` and
 /// claim the title with `session.title`. Then `prompt.submit` -> stream of
 /// `message.*` / `tool.*` events -> `message.complete`. The runtime session id
 /// changes after a reconnect; the durable id does not.
 class ChatController extends ChangeNotifier {
   ChatController({
     required this.rpc,
-    required Bot bot,
+    required Hob hob,
     this.findCanonical,
     this.onTurnSettled,
   }) {
-    _bot = bot;
+    _hob = hob;
     _eventSub = rpc.events.listen(_onEvent);
     _requestSub = rpc.serverRequests.listen(_onServerRequest);
     _reconnectSub = rpc.onReconnected.listen((_) => _reattach());
@@ -30,13 +30,13 @@ class ChatController extends ChangeNotifier {
   }
 
   final HermesRpc rpc;
-  late Bot _bot;
+  late Hob _hob;
 
-  /// Re-reads the roster and returns the bot's current canonical session.
+  /// Re-reads the roster and returns the hob's current canonical session.
   final Future<SessionSummary?> Function(String profile)? findCanonical;
 
   /// Called after a turn ends (roster preview / unread bookkeeping).
-  final void Function(Bot bot)? onTurnSettled;
+  final void Function(Hob hob)? onTurnSettled;
 
   late final StreamSubscription<GatewayEvent> _eventSub;
   late final StreamSubscription<ServerRequest> _requestSub;
@@ -74,7 +74,7 @@ class ChatController extends ChangeNotifier {
   int? _approvalGeneration;
   final Map<String, int> _clarifyPrompts = {}; // prompt_id -> generation
 
-  Bot get bot => _bot;
+  Hob get hob => _hob;
   ConnectionStatus get connection => rpc.status;
   bool get busy => phase == ChatPhase.running;
   bool get ready => _sessionId != null && phase != ChatPhase.starting;
@@ -87,14 +87,14 @@ class ChatController extends ChangeNotifier {
     return null;
   }
 
-  void updateBot(Bot bot) {
-    final old = _bot;
-    _bot = bot;
+  void updateHob(Hob hob) {
+    final old = _hob;
+    _hob = hob;
     // An edited profile shows in the chat header right away.
-    if (old.displayName != bot.displayName ||
-        old.shape != bot.shape ||
-        old.color != bot.color ||
-        old.description != bot.description) {
+    if (old.displayName != hob.displayName ||
+        old.shape != hob.shape ||
+        old.color != hob.color ||
+        old.description != hob.description) {
       notifyListeners();
     }
   }
@@ -114,7 +114,7 @@ class ChatController extends ChangeNotifier {
     _notify();
     try {
       await rpc.connect();
-      final stored = _storedId ?? _bot.canonical?.resumeId;
+      final stored = _storedId ?? _hob.canonical?.resumeId;
       if (stored != null) {
         try {
           await _resume(stored);
@@ -140,12 +140,12 @@ class ChatController extends ChangeNotifier {
         // tool name + context) instead of raw model messages.
         ? {
             'session_id': storedId,
-            'profile': _bot.name,
+            'profile': _hob.name,
             'display_projection': true,
           }
         : {
             'session_id': storedId,
-            'profile': _bot.name,
+            'profile': _hob.name,
             'close_on_disconnect': false,
             'inline_images': false,
           };
@@ -202,16 +202,16 @@ class ChatController extends ChangeNotifier {
       'session.create',
       rpc.canonical
           ? {
-              'profile': _bot.name,
-              'title': Bot.canonicalTitle,
+              'profile': _hob.name,
+              'title': Hob.canonicalTitle,
               'hidden': true,
               'follow_profile_config': true,
               'request_id': uuidV4(),
               'source': 'gui',
             }
           : {
-              'profile': _bot.name,
-              'title': Bot.canonicalTitle,
+              'profile': _hob.name,
+              'title': Hob.canonicalTitle,
               'hidden': true,
               'follow_profile_config': true,
               'close_on_disconnect': false,
@@ -231,13 +231,13 @@ class ChatController extends ChangeNotifier {
         // a duplicate.
         await rpc.request('session.title', {
           'session_id': runtime,
-          'title': Bot.canonicalTitle,
+          'title': Hob.canonicalTitle,
         });
       } on RpcException catch (e) {
         if (e.message.toLowerCase().contains('already in use') &&
             findCanonical != null) {
           // Someone else created the Bot Chat meanwhile: adopt theirs.
-          final winner = await findCanonical!(_bot.name);
+          final winner = await findCanonical!(_hob.name);
           if (winner != null) {
             rpc.request('session.close', {'session_id': runtime}).ignore();
             await _resume(winner.resumeId);
@@ -257,7 +257,7 @@ class ChatController extends ChangeNotifier {
     final wasRunning = phase == ChatPhase.running;
     try {
       await _resume(stored);
-      if (wasRunning && phase != ChatPhase.running) onTurnSettled?.call(_bot);
+      if (wasRunning && phase != ChatPhase.running) onTurnSettled?.call(_hob);
     } catch (e) {
       error = Strings.current.recoverFailed(e);
       _notify();
@@ -354,7 +354,7 @@ class ChatController extends ChangeNotifier {
   /// A session verb without it lands on the launch profile's owner, which
   /// refuses the stranger (4001 `permission_denied`).
   Map<String, dynamic> _scoped(Map<String, dynamic> params) =>
-      rpc.canonical ? {'profile': _bot.name, ...params} : params;
+      rpc.canonical ? {'profile': _hob.name, ...params} : params;
 
   Future<void> interrupt() async {
     final sid = _sessionId;
@@ -417,8 +417,8 @@ class ChatController extends ChangeNotifier {
 
   static const approvalModes = ['manual', 'smart', 'off'];
 
-  /// Persistent `approvals.mode` of this bot's profile, the same setting as
-  /// the dashboard's approval mode. It applies to every session of the bot,
+  /// Persistent `approvals.mode` of this hob's profile, the same setting as
+  /// the dashboard's approval mode. It applies to every session of the hob,
   /// not only this chat, so it is sent with the profile, not as a session
   /// mutation.
   Future<void> setApprovalMode(String mode) async {
@@ -427,7 +427,7 @@ class ChatController extends ChangeNotifier {
     _notify();
     try {
       final res = await rpc.request('config.set', {
-        'profile': _bot.name,
+        'profile': _hob.name,
         'session_id': ?_sessionId,
         'key': 'approvals.mode',
         'value': mode,
@@ -447,7 +447,7 @@ class ChatController extends ChangeNotifier {
   Future<void> _loadApprovalMode() async {
     try {
       final res = await rpc.request('config.get', {
-        'profile': _bot.name,
+        'profile': _hob.name,
         'key': 'approvals.mode',
       });
       final v = res is Map ? res['value'] : null;
@@ -812,7 +812,7 @@ class ChatController extends ChangeNotifier {
       messages.add(ChatMessage(role: ChatRole.notice, text: w.trim()));
     }
     _finishTurn();
-    onTurnSettled?.call(_bot);
+    onTurnSettled?.call(_hob);
   }
 
   void _finishTurn() {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hobs/api/models.dart';
 import 'package:hobs/state/app_state.dart';
-import 'package:hobs/ui/bot_avatar.dart';
+import 'package:hobs/ui/hob_avatar.dart';
 import 'package:hobs/ui/format.dart';
 import 'package:hobs/ui/login_screen.dart';
 import 'package:provider/provider.dart';
@@ -39,55 +39,55 @@ void main() {
         home: Wrap(
           children: [
             for (final s in shapes)
-              BotAvatar(
-                bot: Bot(name: 'b$s', displayName: s, shape: s),
+              HobAvatar(
+                hob: Hob(name: 'b$s', displayName: s, shape: s),
                 working: s == 'pill',
               ),
           ],
         ),
       ),
     );
-    expect(find.byType(BotAvatar), findsNWidgets(shapes.length));
+    expect(find.byType(HobAvatar), findsNWidgets(shapes.length));
     expect(
-      BotAvatar.colorFor(Bot(name: 'x', displayName: 'x', color: '#F0997B')),
+      HobAvatar.colorFor(Hob(name: 'x', displayName: 'x', color: '#F0997B')),
       const Color(0xFFF0997B),
     );
   });
 
   test('faces follow the dashboard formulas', () {
     // "a" hashes to 97: shape 97 % 7, hue 97.
-    final a = BotAvatar.resolve(name: 'a');
+    final a = HobAvatar.resolve(name: 'a');
     expect(a.shape, 'drop');
     expect(a.color, const HSLColor.fromAHSL(1, 97, .68, .58).toColor());
     // The hash wraps at 32 bits, like the dashboard's `>>> 0`.
-    expect(BotAvatar.autoShape('financni-poradce'), 'hexagon');
+    expect(HobAvatar.autoShape('financni-poradce'), 'hexagon');
 
     // The default profile keeps its fixed face until the user picks one.
-    final fixed = BotAvatar.resolve(name: 'Default', shape: 'drop');
+    final fixed = HobAvatar.resolve(name: 'Default', shape: 'drop');
     expect((fixed.shape, fixed.color), ('squircle', const Color(0xFF8B5CF6)));
     expect(
-      BotAvatar.resolve(name: 'default', shape: 'drop', custom: true).shape,
+      HobAvatar.resolve(name: 'default', shape: 'drop', custom: true).shape,
       'drop',
     );
 
     expect(
-      BotAvatar.parseColor('hsl(30 68% 58%)'),
+      HobAvatar.parseColor('hsl(30 68% 58%)'),
       const HSLColor.fromAHSL(1, 30, .68, .58).toColor(),
     );
-    expect(BotAvatar.palette.length, 12);
-    expect(BotAvatar.resolve(name: 'a', color: '#101010').lightEyes, isTrue);
-    expect(BotAvatar.resolve(name: 'a', shape: 'hex').shape, 'hexagon');
-    expect(BotAvatar.resolve(name: 'a', shape: 'weird').shape, 'drop');
+    expect(HobAvatar.palette.length, 12);
+    expect(HobAvatar.resolve(name: 'a', color: '#101010').lightEyes, isTrue);
+    expect(HobAvatar.resolve(name: 'a', shape: 'hex').shape, 'hexagon');
+    expect(HobAvatar.resolve(name: 'a', shape: 'weird').shape, 'drop');
 
-    final blob = BotAvatar.resolve(name: 'a', shape: 'blobatar:k3x:sun');
+    final blob = HobAvatar.resolve(name: 'a', shape: 'blobatar:k3x:sun');
     expect((blob.blobSeed, blob.blobKind), ('k3x', 'sun'));
-    expect(BotAvatar.resolve(name: 'a', shape: 'blobatar').blobSeed, 'a');
-    expect(BotAvatar.blobShape('', null), 'blobatar');
-    expect(BotAvatar.blobShape('k3x', null), 'blobatar:k3x');
+    expect(HobAvatar.resolve(name: 'a', shape: 'blobatar').blobSeed, 'a');
+    expect(HobAvatar.blobShape('', null), 'blobatar');
+    expect(HobAvatar.blobShape('k3x', null), 'blobatar:k3x');
   });
 
-  test('bot parsing edge cases used by the list UI', () {
-    final b = Bot.fromJson({
+  test('hob parsing edge cases used by the list UI', () {
+    final b = Hob.fromJson({
       'name': 'research_bot',
       'display_name': '',
       'model': '',

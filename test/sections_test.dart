@@ -5,14 +5,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hobs/api/models.dart';
 import 'package:hobs/state/app_state.dart';
-import 'package:hobs/ui/bots_screen.dart';
+import 'package:hobs/ui/hobs_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'credentials_test.dart' show settle;
 import 'fake_hermes_server.dart';
 
-Bot _bot(String name, [String? section]) => Bot(
+Hob _hob(String name, [String? section]) => Hob(
   name: name,
   displayName: name,
   sectionId: section,
@@ -27,7 +27,7 @@ void main() {
 
     test('a moved folder keeps its place, new folders go last', () async {
       final app = AppState()
-        ..bots = [_bot('1', 'a'), _bot('2', 'b'), _bot('3', 'c'), _bot('4')];
+        ..hobs = [_hob('1', 'a'), _hob('2', 'b'), _hob('3', 'c'), _hob('4')];
       List<String> titles() => app.sections.map((s) => s.title).toList();
       expect(titles(), ['Folder a', 'Folder b', 'Folder c', 'Nezařazení']);
 
@@ -43,10 +43,10 @@ void main() {
       app.setQuery('');
       expect(titles(), ['Folder b', 'Folder a', 'Folder c', 'Nezařazení']);
 
-      app.bots = [...app.bots, _bot('5', 'aa')];
+      app.hobs = [...app.hobs, _hob('5', 'aa')];
       expect(titles().sublist(3), ['Folder aa', 'Nezařazení']);
 
-      app.moveSection(BotSection.unassignedKey, before: 'section:a');
+      app.moveSection(HobSection.unassignedKey, before: 'section:a');
       expect(titles().last, 'Nezařazení');
 
       await Future<void>.delayed(Duration.zero);
@@ -61,11 +61,11 @@ void main() {
       tester,
     ) async {
       final app = AppState()
-        ..bots = [_bot('1', 'a'), _bot('2', 'b'), _bot('4')];
+        ..hobs = [_hob('1', 'a'), _hob('2', 'b'), _hob('4')];
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
           value: app,
-          child: const MaterialApp(home: BotsScreen()),
+          child: const MaterialApp(home: HobsScreen()),
         ),
       );
       expect(find.byIcon(Icons.drag_handle), findsNWidgets(2));
@@ -109,7 +109,7 @@ void main() {
       await server.start();
       SharedPreferences.setMockInitialValues({});
       FlutterSecureStorage.setMockInitialValues({});
-      // The hidden bot sits in the same folder as the visible one.
+      // The hidden hob sits in the same folder as the visible one.
       server.roster[2]['ui_meta'] = {
         'hermes-bots': {
           'hidden': true,
@@ -153,12 +153,12 @@ void main() {
         'sectionName': 'Klienti',
       });
       expect(app.sections.first.title, 'Klienti');
-      expect(app.bots.map((b) => b.name), ['cto', 'default']);
+      expect(app.hobs.map((b) => b.name), ['cto', 'default']);
     });
 
     test('a stale revision is reread and retried', () async {
       await app.renameSection('section:s1', 'První');
-      // Another client edits the bot: the app's copy is now one revision old.
+      // Another client edits the hob: the app's copy is now one revision old.
       meta(0)['color'] = '#000000';
       (server.roster[0]['ui_meta_revisions'] as Map)['hermes-bots'] = 7;
       server.configures.clear();

@@ -53,11 +53,11 @@ class StringsEn extends Strings {
   String get errorNoSessionCookie =>
       'The server didn\'t return a session cookie';
 
-  // --- bot list ------------------------------------------------------------
+  // --- hob list ------------------------------------------------------------
   @override
-  String get botsTitle => 'Bots';
+  String get hobsTitle => 'Hobs';
   @override
-  String get pickBot => 'Pick a bot on the left';
+  String get pickHob => 'Pick a Hob on the left';
   @override
   String get filterAll => 'All';
   @override
@@ -77,13 +77,13 @@ class StringsEn extends Strings {
   @override
   String get signOut => 'Sign out';
   @override
-  String get searchBots => 'Search bots';
+  String get searchHobs => 'Search Hobs';
   @override
   String get retry => 'Try again';
   @override
-  String get noBots => 'This server has no bots yet.';
+  String get noHobs => 'This server has no Hobs yet.';
   @override
-  String get noMatches => 'No bots match this filter.';
+  String get noMatches => 'No Hobs match this filter.';
   @override
   String get working => 'working';
   @override
@@ -115,11 +115,11 @@ class StringsEn extends Strings {
   @override
   String get moveFolder => 'Move folder';
 
-  // --- bot profile ---------------------------------------------------------
+  // --- hob profile ---------------------------------------------------------
   @override
-  String get botProfile => 'Bot profile';
+  String get hobProfile => 'Hob profile';
   @override
-  String editBot(String bot) => 'Edit profile: $bot';
+  String editHob(String hob) => 'Edit profile: $hob';
   @override
   String get appearance => 'Appearance';
   @override
@@ -135,11 +135,11 @@ class StringsEn extends Strings {
   @override
   String get autoLabel => 'Auto';
   @override
-  String get botTitleLabel => 'Title';
+  String get hobTitleLabel => 'Title';
   @override
-  String get botDescriptionLabel => 'Description';
+  String get hobDescriptionLabel => 'Description';
   @override
-  String get botDescriptionHint => 'What should this bot help with?';
+  String get hobDescriptionHint => 'What should this Hob help with?';
   @override
   String get modelSection => 'Model';
   @override
@@ -153,7 +153,7 @@ class StringsEn extends Strings {
   @override
   String get soulSection => 'SOUL.md';
   @override
-  String get soulHint => 'The bot\'s persona and standing instructions';
+  String get soulHint => 'The Hob\'s persona and standing instructions';
   @override
   String get setupLoadFailed =>
       'Could not load the model and SOUL.md. The rest of the profile can be edited.';
@@ -165,11 +165,11 @@ class StringsEn extends Strings {
   @override
   String get switchModel => 'Switch';
   @override
-  String botSaved(String bot) => '$bot profile saved';
+  String hobSaved(String hob) => '$hob profile saved';
   @override
-  String botSaveFailed(String reason) => 'Could not save: $reason';
+  String hobSaveFailed(String reason) => 'Could not save: $reason';
   @override
-  String get botSaveRefused => 'The server refused the change. Try again.';
+  String get hobSaveRefused => 'The server refused the change. Try again.';
   @override
   String get discardChangesTitle => 'Discard unsaved changes?';
   @override
@@ -192,7 +192,7 @@ class StringsEn extends Strings {
   @override
   String get tryAgain => 'Retry';
   @override
-  String get openingChat => 'Opening Bot Chat…';
+  String get openingChat => 'Opening Hob Chat…';
   @override
   String workingOn(String? status) =>
       status != null ? 'working · $status' : 'working…';
@@ -201,7 +201,7 @@ class StringsEn extends Strings {
   @override
   String activeAgo(String age) => 'active $age';
   @override
-  String writeTo(String bot) => 'Send $bot a message';
+  String writeTo(String hob) => 'Send $hob a message';
   @override
   String get interruptedTag => 'stopped';
   @override
@@ -217,14 +217,14 @@ class StringsEn extends Strings {
   @override
   String get send => 'Send';
   @override
-  String get modelTooltip => 'The bot\'s model (change it in the profile)';
+  String get modelTooltip => 'The Hob\'s model (change it in the profile)';
   @override
   String get reasoningLevel => 'Reasoning level';
   @override
   String get reasoning => 'Reasoning';
   @override
   String get approvalModeTooltip =>
-      'Approval of dangerous commands (applies to the whole bot)';
+      'Approval of dangerous commands (applies to the whole Hob)';
   @override
   String approvalModeLabel(String mode) => switch (mode) {
     'manual' => 'Manual',
@@ -241,7 +241,7 @@ class StringsEn extends Strings {
   };
   @override
   String approvalTitle(String? tool) =>
-      'The bot needs your approval${tool != null ? ' ($tool)' : ''}';
+      'The Hob needs your approval${tool != null ? ' ($tool)' : ''}';
   @override
   String get allowOnce => 'Allow once';
   @override
@@ -251,7 +251,7 @@ class StringsEn extends Strings {
   @override
   String get deny => 'Deny';
   @override
-  String get botAsks => 'The bot has a question';
+  String get hobAsks => 'The Hob has a question';
   @override
   String get orOwnAnswer => 'or write your own answer';
   @override
@@ -287,7 +287,7 @@ class StringsEn extends Strings {
   @override
   String get chatNotReady => 'The chat isn\'t ready yet.';
   @override
-  String interruptFailed(Object e) => 'Couldn\'t stop the bot: $e';
+  String interruptFailed(Object e) => 'Couldn\'t stop the Hob: $e';
   @override
   String reasoningChangeFailed(Object e) =>
       'Couldn\'t change the reasoning level: $e';
@@ -313,7 +313,7 @@ class StringsEn extends Strings {
   @override
   String jobsLoadFailed(Object? e) => 'Couldn\'t load the jobs: $e';
   @override
-  String get noJobs => 'This bot has no scheduled jobs.';
+  String get noJobs => 'This Hob has no scheduled jobs.';
   @override
   String nextRun(String when) => 'Next run: $when';
   @override

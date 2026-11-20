@@ -6,8 +6,8 @@ import '../l10n/strings.dart';
 import '../state/app_state.dart';
 import 'format.dart';
 
-/// The bot's scheduled jobs (dashboard's "Scheduled jobs" rail), read-only.
-Future<void> showCronSheet(BuildContext context, Bot bot) {
+/// The hob's scheduled jobs (dashboard's "Scheduled jobs" rail), read-only.
+Future<void> showCronSheet(BuildContext context, Hob hob) {
   final app = context.read<AppState>();
   return showModalBottomSheet<void>(
     context: context,
@@ -19,16 +19,16 @@ Future<void> showCronSheet(BuildContext context, Bot bot) {
       minChildSize: 0.3,
       maxChildSize: 0.92,
       builder: (context, scroll) =>
-          _CronList(app: app, bot: bot, scroll: scroll),
+          _CronList(app: app, hob: hob, scroll: scroll),
     ),
   );
 }
 
 class _CronList extends StatefulWidget {
-  const _CronList({required this.app, required this.bot, required this.scroll});
+  const _CronList({required this.app, required this.hob, required this.scroll});
 
   final AppState app;
-  final Bot bot;
+  final Hob hob;
   final ScrollController scroll;
 
   @override
@@ -36,7 +36,7 @@ class _CronList extends StatefulWidget {
 }
 
 class _CronListState extends State<_CronList> {
-  late Future<List<CronJob>> _jobs = widget.app.cronJobs(widget.bot);
+  late Future<List<CronJob>> _jobs = widget.app.cronJobs(widget.hob);
 
   @override
   Widget build(BuildContext context) {
@@ -52,14 +52,14 @@ class _CronListState extends State<_CronList> {
             children: [
               Expanded(
                 child: Text(
-                  '${s.scheduledJobs} · ${widget.bot.displayName}',
+                  '${s.scheduledJobs} · ${widget.hob.displayName}',
                   style: theme.textTheme.titleMedium,
                 ),
               ),
               IconButton(
                 tooltip: s.refresh,
                 onPressed: () =>
-                    setState(() => _jobs = widget.app.cronJobs(widget.bot)),
+                    setState(() => _jobs = widget.app.cronJobs(widget.hob)),
                 icon: const Icon(Icons.refresh),
               ),
             ],

@@ -6,15 +6,10 @@ import 'package:flutter/material.dart';
 import '../api/models.dart';
 import 'theme.dart';
 
-/// Bot avatar in the dashboard's vocabulary: a colored shape with two eyes.
-///
-/// Shape and color come from `ui_meta['hermes-bots']` (`shape`, `color`).
-/// Without them both are derived from the bot name, like the dashboard does,
-/// so a bot keeps the same face on every device.
-/// What an avatar draws: resolved from a bot's stored `shape` and `color`
+/// What an avatar draws: resolved from a hob's stored `shape` and `color`
 /// the way the dashboard resolves them.
-class BotFace {
-  const BotFace({
+class HobFace {
+  const HobFace({
     required this.shape,
     required this.color,
     this.lightEyes = false,
@@ -38,7 +33,7 @@ class BotFace {
 
   @override
   bool operator ==(Object other) =>
-      other is BotFace &&
+      other is HobFace &&
       other.shape == shape &&
       other.color == color &&
       other.lightEyes == lightEyes &&
@@ -49,25 +44,25 @@ class BotFace {
   int get hashCode => Object.hash(shape, color, lightEyes, blobSeed, blobKind);
 }
 
-/// Bot avatar as the dashboard draws it: a colored shape with two eyes.
+/// Hob avatar as the dashboard draws it: a colored shape with two eyes.
 ///
 /// Shape and color come from `ui_meta['hermes-bots']` (`shape`, `color`).
-/// Without them both are derived from the bot name with the dashboard's own
-/// formulas, so a bot has the same face here and on the web.
-class BotAvatar extends StatelessWidget {
-  const BotAvatar({
+/// Without them both are derived from the hob name with the dashboard's own
+/// formulas, so a hob has the same face here and on the web.
+class HobAvatar extends StatelessWidget {
+  const HobAvatar({
     super.key,
-    required this.bot,
+    required this.hob,
     this.size = 36,
     this.working = false,
     this.face,
   });
 
-  final Bot bot;
+  final Hob hob;
   final double size;
 
-  /// Draw this face instead of the bot's own (editor preview).
-  final BotFace? face;
+  /// Draw this face instead of the hob's own (editor preview).
+  final HobFace? face;
 
   /// Shows the green presence dot.
   final bool working;
@@ -123,7 +118,7 @@ class BotAvatar extends StatelessWidget {
       shape == 'blobatar' || (shape?.startsWith('blobatar:') ?? false);
 
   /// The seed a stored blobatar shape carries (`blobatar:<seed>:<kind>`);
-  /// empty when the face follows the bot's name.
+  /// empty when the face follows the hob's name.
   static String blobSeedOf(String? shape) =>
       isBlob(shape) ? (shape!.split(':').elementAtOrNull(1) ?? '') : '';
 
@@ -143,7 +138,7 @@ class BotAvatar extends StatelessWidget {
     for (var i = 0; i < 12; i++) 'hsl(${i * 30} 68% 58%)',
   ];
 
-  /// The dashboard's color for the default profile and for nameless bots.
+  /// The dashboard's color for the default profile and for nameless hobs.
   static const _fallbackColor = Color(0xFF8B5CF6);
 
   /// The dashboard's string hash: `h * 31 + unit`, wrapped to 32 bits.
@@ -155,28 +150,28 @@ class BotAvatar extends StatelessWidget {
     return h;
   }
 
-  static BotFace faceOf(Bot bot) => resolve(
-    name: bot.name,
-    shape: bot.shape,
-    color: bot.color,
-    custom: bot.meta['custom'] == true,
+  static HobFace faceOf(Hob hob) => resolve(
+    name: hob.name,
+    shape: hob.shape,
+    color: hob.color,
+    custom: hob.meta['custom'] == true,
   );
 
   /// The face for a stored [shape] and [color]; null takes the one derived
   /// from [name]. The default profile keeps its fixed face until the user
   /// picks one ([custom]).
-  static BotFace resolve({
+  static HobFace resolve({
     required String name,
     String? shape,
     String? color,
     bool custom = false,
   }) {
     if (name.trim().toLowerCase() == 'default' && !custom) {
-      return const BotFace(shape: 'squircle', color: _fallbackColor);
+      return const HobFace(shape: 'squircle', color: _fallbackColor);
     }
     final parsed = parseColor(color);
     final seed = blobSeedOf(shape);
-    return BotFace(
+    return HobFace(
       blobSeed: !isBlob(shape)
           ? null
           : (seed.isNotEmpty ? seed : (name.isNotEmpty ? name : 'agent')),
@@ -189,9 +184,9 @@ class BotAvatar extends StatelessWidget {
     );
   }
 
-  static String shapeFor(Bot bot) => faceOf(bot).shape;
+  static String shapeFor(Hob hob) => faceOf(hob).shape;
 
-  static Color colorFor(Bot bot) => faceOf(bot).color;
+  static Color colorFor(Hob hob) => faceOf(hob).color;
 
   /// The drawable shape a stored `shape` value names, or null when the name
   /// decides (nothing stored, or a shape this app cannot draw).
@@ -200,11 +195,11 @@ class BotAvatar extends StatelessWidget {
     return pickableShapes.contains(s) ? s : null;
   }
 
-  /// The shape a bot gets from its name when none is picked.
+  /// The shape a hob gets from its name when none is picked.
   static String autoShape(String name) =>
       _autoShapes[_hash(name) % _autoShapes.length];
 
-  /// The color a bot gets from its name when none is picked.
+  /// The color a hob gets from its name when none is picked.
   static Color autoColor(String name) {
     final n = name.trim();
     if (n.isEmpty || n == 'default') return _fallbackColor;
@@ -244,7 +239,7 @@ class BotAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final face = this.face ?? faceOf(bot);
+    final face = this.face ?? faceOf(hob);
     final dot = size * 0.3;
     return SizedBox(
       width: size,
@@ -290,7 +285,7 @@ class BotAvatar extends StatelessWidget {
 class _AvatarPainter extends CustomPainter {
   _AvatarPainter(this.face);
 
-  final BotFace face;
+  final HobFace face;
 
   static const _steps = 52;
 
