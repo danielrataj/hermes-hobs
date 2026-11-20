@@ -4,39 +4,39 @@ import 'package:provider/provider.dart';
 import '../api/models.dart';
 import '../l10n/strings.dart';
 import '../state/app_state.dart';
-import 'bot_avatar.dart';
+import 'hob_avatar.dart';
 
-/// A bot's profile: its face, title, description, model and SOUL.md, editable like in
-/// the dashboard's "Edit profile" dialog. Opened by tapping a bot's avatar.
-class BotDetailScreen extends StatefulWidget {
-  const BotDetailScreen({super.key, required this.bot});
+/// A hob's profile: its face, title, description, model and SOUL.md, editable like in
+/// the dashboard's "Edit profile" dialog. Opened by tapping a hob's avatar.
+class HobDetailScreen extends StatefulWidget {
+  const HobDetailScreen({super.key, required this.hob});
 
-  final Bot bot;
+  final Hob hob;
 
-  static Future<void> open(BuildContext context, Bot bot) =>
+  static Future<void> open(BuildContext context, Hob hob) =>
       Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => BotDetailScreen(bot: bot)));
+          .push(MaterialPageRoute(builder: (_) => HobDetailScreen(hob: hob)));
 
   @override
-  State<BotDetailScreen> createState() => _BotDetailScreenState();
+  State<HobDetailScreen> createState() => _HobDetailScreenState();
 }
 
-class _BotDetailScreenState extends State<BotDetailScreen> {
-  /// The bot the form was filled from; edits are compared against it.
-  late Bot _bot = widget.bot;
+class _HobDetailScreenState extends State<HobDetailScreen> {
+  /// The hob the form was filled from; edits are compared against it.
+  late Hob _hob = widget.hob;
 
-  late final _title = TextEditingController(text: _bot.customTitle);
-  late final _description = TextEditingController(text: _bot.description);
+  late final _title = TextEditingController(text: _hob.customTitle);
+  late final _description = TextEditingController(text: _hob.description);
   final _provider = TextEditingController();
   final _model = TextEditingController();
   final _soul = TextEditingController();
 
-  /// Stored values; null draws the one derived from the bot's name.
-  late String? _shape = _bot.shape;
-  late String? _color = _bot.color;
+  /// Stored values; null draws the one derived from the hob's name.
+  late String? _shape = _hob.shape;
+  late String? _color = _hob.color;
 
   /// Null while loading. [_setupFailed] when the profile could not be read.
-  BotSetup? _saved;
+  HobSetup? _saved;
   bool _setupFailed = false;
   List<ModelProvider> _providers = const [];
 
@@ -70,7 +70,7 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
       (_) => const <ModelProvider>[],
     );
     try {
-      final setup = await app.botSetup(_bot);
+      final setup = await app.hobSetup(_hob);
       final list = await providers;
       if (!mounted) return;
       _provider.text = setup.provider;
@@ -87,12 +87,12 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
   }
 
   bool get _appearanceDirty =>
-      _title.text.trim() != _bot.customTitle ||
-      _shape != _bot.shape ||
-      _color != _bot.color;
+      _title.text.trim() != _hob.customTitle ||
+      _shape != _hob.shape ||
+      _color != _hob.color;
 
   bool get _descriptionDirty =>
-      _description.text.trim() != _bot.description.trim();
+      _description.text.trim() != _hob.description.trim();
 
   bool get _modelDirty {
     final saved = _saved;
@@ -124,29 +124,29 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
     setState(() => _saving = true);
     var done = true;
     try {
-      final bot = app.botNamed(_bot.name) ?? _bot;
+      final hob = app.hobNamed(_hob.name) ?? _hob;
       if (_appearanceDirty) {
-        await app.saveBotAppearance(
-          bot,
+        await app.saveHobAppearance(
+          hob,
           title: _title.text,
           shape: _shape,
           color: _color,
         );
       }
       if (_descriptionDirty) {
-        await app.saveBotDescription(bot, _description.text);
+        await app.saveHobDescription(hob, _description.text);
       }
       if (_modelDirty) {
-        final question = await app.saveBotModel(
-          bot,
+        final question = await app.saveHobModel(
+          hob,
           provider: provider,
           model: model,
         );
         if (question != null) {
           if (!mounted) return;
           if (await _confirmModel(question)) {
-            await app.saveBotModel(
-              bot,
+            await app.saveHobModel(
+              hob,
               provider: provider,
               model: model,
               confirmed: true,
@@ -156,7 +156,7 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
           }
         }
         if (done) {
-          _saved = BotSetup(
+          _saved = HobSetup(
             provider: provider,
             model: model,
             soul: _saved!.soul,
@@ -164,8 +164,8 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
         }
       }
       if (_soulDirty) {
-        await app.saveBotSoul(bot, _soul.text);
-        _saved = BotSetup(
+        await app.saveHobSoul(hob, _soul.text);
+        _saved = HobSetup(
           provider: _saved!.provider,
           model: _saved!.model,
           soul: _soul.text,
@@ -174,14 +174,14 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
     } catch (e) {
       done = false;
       messenger.showSnackBar(
-        SnackBar(content: Text(s.botSaveFailed(AppState.describeError(e)))),
+        SnackBar(content: Text(s.hobSaveFailed(AppState.describeError(e)))),
       );
     }
-    await app.refreshBots(silent: true);
-    final fresh = app.botNamed(_bot.name) ?? _bot;
+    await app.refreshHobs(silent: true);
+    final fresh = app.hobNamed(_hob.name) ?? _hob;
     if (done) {
       messenger.showSnackBar(
-        SnackBar(content: Text(s.botSaved(fresh.displayName))),
+        SnackBar(content: Text(s.hobSaved(fresh.displayName))),
       );
       if (mounted) navigator.pop();
       return;
@@ -189,7 +189,7 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
     // Something stayed unsaved: keep the form, compared to what is stored now.
     if (mounted) {
       setState(() {
-        _bot = fresh;
+        _hob = fresh;
         _saving = false;
       });
     }
@@ -243,9 +243,9 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final s = Strings.of(context);
-    final faceColor = BotAvatar.parseColor(_color) ?? BotAvatar.autoColor(_bot);
+    final faceColor = HobAvatar.parseColor(_color) ?? HobAvatar.autoColor(_hob);
     final faceShape =
-        BotAvatar.normalizeShape(_shape) ?? BotAvatar.autoShape(_bot);
+        HobAvatar.normalizeShape(_shape) ?? HobAvatar.autoShape(_hob);
     final title = _title.text.trim();
     return PopScope(
       canPop: !_dirty && !_saving,
@@ -254,7 +254,7 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(s.botProfile),
+          title: Text(s.hobProfile),
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 12),
@@ -277,8 +277,8 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
                 Center(
-                  child: BotAvatar(
-                    bot: _bot,
+                  child: HobAvatar(
+                    hob: _hob,
                     size: 88,
                     shape: faceShape,
                     color: faceColor,
@@ -286,12 +286,12 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  title.isEmpty ? _bot.name : title,
+                  title.isEmpty ? _hob.name : title,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleLarge,
                 ),
                 Text(
-                  '@${_bot.name}',
+                  '@${_hob.name}',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -305,7 +305,7 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
                   children: [
                     _ShapeTile(
                       label: s.byName,
-                      selected: BotAvatar.normalizeShape(_shape) == null,
+                      selected: HobAvatar.normalizeShape(_shape) == null,
                       onTap: () => setState(() => _shape = null),
                       child: Text(
                         s.autoLabel,
@@ -314,19 +314,19 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
                         ),
                       ),
                     ),
-                    for (final shape in BotAvatar.pickableShapes)
+                    for (final shape in HobAvatar.pickableShapes)
                       _ShapeTile(
                         label: shape,
-                        selected: BotAvatar.normalizeShape(_shape) == shape,
+                        selected: HobAvatar.normalizeShape(_shape) == shape,
                         // A blob the dashboard drew stays as it is stored.
                         onTap: () => setState(
                           () => _shape =
-                              BotAvatar.normalizeShape(_bot.shape) == shape
-                              ? _bot.shape
+                              HobAvatar.normalizeShape(_hob.shape) == shape
+                              ? _hob.shape
                               : shape,
                         ),
-                        child: BotAvatar(
-                          bot: _bot,
+                        child: HobAvatar(
+                          hob: _hob,
                           size: 30,
                           shape: shape,
                           color: faceColor,
@@ -343,15 +343,15 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
                     _Swatch(
                       label: s.byName,
                       color: null,
-                      selected: BotAvatar.parseColor(_color) == null,
+                      selected: HobAvatar.parseColor(_color) == null,
                       onTap: () => setState(() => _color = null),
                     ),
                     for (final c in _swatches())
                       _Swatch(
-                        label: BotAvatar.hex(c),
+                        label: HobAvatar.hex(c),
                         color: c,
-                        selected: BotAvatar.parseColor(_color) == c,
-                        onTap: () => setState(() => _color = BotAvatar.hex(c)),
+                        selected: HobAvatar.parseColor(_color) == c,
+                        onTap: () => setState(() => _color = HobAvatar.hex(c)),
                       ),
                   ],
                 ),
@@ -361,8 +361,8 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
-                    labelText: s.botTitleLabel,
-                    hintText: _bot.name,
+                    labelText: s.hobTitleLabel,
+                    hintText: _hob.name,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -372,8 +372,8 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
                   maxLines: 8,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    labelText: s.botDescriptionLabel,
-                    hintText: s.botDescriptionHint,
+                    labelText: s.hobDescriptionLabel,
+                    hintText: s.hobDescriptionHint,
                     alignLabelWithHint: true,
                   ),
                 ),
@@ -414,12 +414,12 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
     );
   }
 
-  /// The palette, led by the bot's own color when it is not one of them.
+  /// The palette, led by the hob's own color when it is not one of them.
   List<Color> _swatches() {
-    final own = BotAvatar.parseColor(_bot.color);
+    final own = HobAvatar.parseColor(_hob.color);
     return [
-      if (own != null && !BotAvatar.palette.contains(own)) own,
-      ...BotAvatar.palette,
+      if (own != null && !HobAvatar.palette.contains(own)) own,
+      ...HobAvatar.palette,
     ];
   }
 

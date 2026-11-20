@@ -51,11 +51,11 @@ class StringsCs extends Strings {
   @override
   String get errorNoSessionCookie => 'Server nevrátil session cookie';
 
-  // --- bot list ------------------------------------------------------------
+  // --- hob list ------------------------------------------------------------
   @override
-  String get botsTitle => 'Hobíci';
+  String get hobsTitle => 'Hobíci';
   @override
-  String get pickBot => 'Vyber Hobíka vlevo';
+  String get pickHob => 'Vyber Hobíka vlevo';
   @override
   String get filterAll => 'Vše';
   @override
@@ -75,11 +75,11 @@ class StringsCs extends Strings {
   @override
   String get signOut => 'Odhlásit';
   @override
-  String get searchBots => 'Hledat Hobíky';
+  String get searchHobs => 'Hledat Hobíky';
   @override
   String get retry => 'Zkusit znovu';
   @override
-  String get noBots => 'Na serveru nejsou žádní Hobíci.';
+  String get noHobs => 'Na serveru nejsou žádní Hobíci.';
   @override
   String get noMatches => 'Filtru nic neodpovídá.';
   @override
@@ -114,11 +114,11 @@ class StringsCs extends Strings {
   @override
   String get moveFolder => 'Přesunout složku';
 
-  // --- bot profile ---------------------------------------------------------
+  // --- hob profile ---------------------------------------------------------
   @override
-  String get botProfile => 'Profil Hobíka';
+  String get hobProfile => 'Profil Hobíka';
   @override
-  String editBot(String bot) => 'Upravit profil: $bot';
+  String editHob(String hob) => 'Upravit profil: $hob';
   @override
   String get appearance => 'Vzhled';
   @override
@@ -130,11 +130,11 @@ class StringsCs extends Strings {
   @override
   String get autoLabel => 'Auto';
   @override
-  String get botTitleLabel => 'Název';
+  String get hobTitleLabel => 'Název';
   @override
-  String get botDescriptionLabel => 'Popis';
+  String get hobDescriptionLabel => 'Popis';
   @override
-  String get botDescriptionHint => 'S čím má Hobík pomáhat?';
+  String get hobDescriptionHint => 'S čím má Hobík pomáhat?';
   @override
   String get modelSection => 'Model';
   @override
@@ -159,11 +159,11 @@ class StringsCs extends Strings {
   @override
   String get switchModel => 'Přepnout';
   @override
-  String botSaved(String bot) => 'Profil $bot je uložený';
+  String hobSaved(String hob) => 'Profil $hob je uložený';
   @override
-  String botSaveFailed(String reason) => 'Uložení se nepovedlo: $reason';
+  String hobSaveFailed(String reason) => 'Uložení se nepovedlo: $reason';
   @override
-  String get botSaveRefused => 'Server změnu odmítl. Zkuste to znovu.';
+  String get hobSaveRefused => 'Server změnu odmítl. Zkuste to znovu.';
   @override
   String get discardChangesTitle => 'Zahodit neuložené změny?';
   @override
@@ -199,7 +199,7 @@ class StringsCs extends Strings {
   @override
   String activeAgo(String age) => 'aktivní $age';
   @override
-  String writeTo(String bot) => 'Napiš zprávu pro $bot';
+  String writeTo(String hob) => 'Napiš zprávu pro $hob';
   @override
   String get interruptedTag => 'přerušeno';
   @override
@@ -249,7 +249,7 @@ class StringsCs extends Strings {
   @override
   String get deny => 'Zamítnout';
   @override
-  String get botAsks => 'Hobík se ptá';
+  String get hobAsks => 'Hobík se ptá';
   @override
   String get orOwnAnswer => 'nebo vlastní odpověď';
   @override

@@ -5,25 +5,25 @@ import 'package:flutter/material.dart';
 import '../api/models.dart';
 import 'theme.dart';
 
-/// Bot avatar in the dashboard's vocabulary: a colored shape with two eyes.
+/// Hob avatar in the dashboard's vocabulary: a colored shape with two eyes.
 ///
 /// Shape and color come from `ui_meta['hermes-bots']` (`shape`, `color`).
-/// Without them both are derived from the bot name, like the dashboard does,
-/// so a bot keeps the same face on every device.
-class BotAvatar extends StatelessWidget {
-  const BotAvatar({
+/// Without them both are derived from the hob name, like the dashboard does,
+/// so a hob keeps the same face on every device.
+class HobAvatar extends StatelessWidget {
+  const HobAvatar({
     super.key,
-    required this.bot,
+    required this.hob,
     this.size = 36,
     this.working = false,
     this.shape,
     this.color,
   });
 
-  final Bot bot;
+  final Hob hob;
   final double size;
 
-  /// Draw this shape and color instead of the bot's own (editor preview).
+  /// Draw this shape and color instead of the hob's own (editor preview).
   final String? shape;
   final Color? color;
 
@@ -75,8 +75,8 @@ class BotAvatar extends StatelessWidget {
     return h;
   }
 
-  static String shapeFor(Bot bot) =>
-      normalizeShape(bot.shape) ?? autoShape(bot);
+  static String shapeFor(Hob hob) =>
+      normalizeShape(hob.shape) ?? autoShape(hob);
 
   /// The shape drawn for a stored `shape` value, or null when it names none.
   static String? normalizeShape(String? s) {
@@ -85,19 +85,19 @@ class BotAvatar extends StatelessWidget {
     return _shapes.contains(s) ? s : null;
   }
 
-  /// The shape a bot gets from its name when none is picked.
-  static String autoShape(Bot bot) => _shapes[_hash(bot.name) % _shapes.length];
+  /// The shape a hob gets from its name when none is picked.
+  static String autoShape(Hob hob) => _shapes[_hash(hob.name) % _shapes.length];
 
-  static Color colorFor(Bot bot) => parseColor(bot.color) ?? autoColor(bot);
+  static Color colorFor(Hob hob) => parseColor(hob.color) ?? autoColor(hob);
 
   static Color? parseColor(String? c) {
     if (c == null || !RegExp(r'^#?[0-9a-fA-F]{6}$').hasMatch(c)) return null;
     return Color(int.parse(c.replaceFirst('#', ''), radix: 16) | 0xFF000000);
   }
 
-  /// The color a bot gets from its name when none is picked.
-  static Color autoColor(Bot bot) =>
-      palette[_hash('${bot.name}::color') % palette.length];
+  /// The color a hob gets from its name when none is picked.
+  static Color autoColor(Hob hob) =>
+      palette[_hash('${hob.name}::color') % palette.length];
 
   /// `#RRGGBB`, the way the dashboard stores a color.
   static String hex(Color c) =>
@@ -105,7 +105,7 @@ class BotAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = this.color ?? colorFor(bot);
+    final color = this.color ?? colorFor(hob);
     final dot = size * 0.3;
     return SizedBox(
       width: size,
@@ -116,9 +116,9 @@ class BotAvatar extends StatelessWidget {
           CustomPaint(
             size: Size.square(size),
             painter: _AvatarPainter(
-              shape: shape ?? shapeFor(bot),
+              shape: shape ?? shapeFor(hob),
               color: color,
-              seed: _hash(bot.name),
+              seed: _hash(hob.name),
             ),
           ),
           if (working)

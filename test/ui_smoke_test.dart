@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hobs/api/models.dart';
 import 'package:hobs/state/app_state.dart';
-import 'package:hobs/ui/bot_avatar.dart';
+import 'package:hobs/ui/hob_avatar.dart';
 import 'package:hobs/ui/format.dart';
 import 'package:hobs/ui/login_screen.dart';
 import 'package:provider/provider.dart';
@@ -39,29 +39,29 @@ void main() {
         home: Wrap(
           children: [
             for (final s in shapes)
-              BotAvatar(
-                bot: Bot(name: 'b$s', displayName: s, shape: s),
+              HobAvatar(
+                hob: Hob(name: 'b$s', displayName: s, shape: s),
                 working: s == 'pill',
               ),
           ],
         ),
       ),
     );
-    expect(find.byType(BotAvatar), findsNWidgets(shapes.length));
+    expect(find.byType(HobAvatar), findsNWidgets(shapes.length));
     expect(
-      BotAvatar.shapeFor(
-        Bot(name: 'x', displayName: 'x', shape: 'blobatar:7:a'),
+      HobAvatar.shapeFor(
+        Hob(name: 'x', displayName: 'x', shape: 'blobatar:7:a'),
       ),
       'blob',
     );
     expect(
-      BotAvatar.colorFor(Bot(name: 'x', displayName: 'x', color: '#F0997B')),
+      HobAvatar.colorFor(Hob(name: 'x', displayName: 'x', color: '#F0997B')),
       const Color(0xFFF0997B),
     );
   });
 
-  test('bot parsing edge cases used by the list UI', () {
-    final b = Bot.fromJson({
+  test('hob parsing edge cases used by the list UI', () {
+    final b = Hob.fromJson({
       'name': 'research_bot',
       'display_name': '',
       'model': '',

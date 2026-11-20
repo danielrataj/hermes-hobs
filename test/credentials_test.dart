@@ -24,8 +24,8 @@ Future<void> waitFor(bool Function() cond) async {
 /// test logs out or disposes.
 Future<void> settle(AppState app) => waitFor(
   () =>
-      app.bots.isNotEmpty &&
-      !app.loadingBots &&
+      app.hobs.isNotEmpty &&
+      !app.loadingHobs &&
       app.connection == ConnectionStatus.connected,
 );
 

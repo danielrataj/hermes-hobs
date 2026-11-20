@@ -5,7 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'l10n/strings.dart';
 import 'state/app_state.dart';
-import 'ui/bots_screen.dart';
+import 'ui/hobs_screen.dart';
 import 'ui/login_screen.dart';
 import 'ui/splash_screen.dart';
 import 'ui/theme.dart';
@@ -70,7 +70,7 @@ class _HobsAppState extends State<HobsApp> with WidgetsBindingObserver {
       home: switch (phase) {
         AuthPhase.loading => const SplashScreen(),
         AuthPhase.signedOut => const LoginScreen(),
-        AuthPhase.signedIn => const BotsScreen(),
+        AuthPhase.signedIn => const HobsScreen(),
       },
     );
   }
