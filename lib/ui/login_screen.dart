@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
+import 'splash_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -72,10 +73,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(
-                      Icons.smart_toy_outlined,
-                      size: 56,
-                      color: theme.colorScheme.primary,
+                    const Center(
+                      child: CustomPaint(
+                        size: Size.square(88),
+                        painter: HobGlyphPainter(),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Text(
