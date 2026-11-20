@@ -122,7 +122,11 @@ class StringsCs extends Strings {
   @override
   String get appearance => 'Vzhled';
   @override
-  String get shapeLabel => 'Tvar';
+  String get blobFaceLabel => 'Obličej';
+  @override
+  String get randomizeFace => 'Jiný obličej';
+  @override
+  String get shapeLabel => 'Klasický tvar';
   @override
   String get colorLabel => 'Barva';
   @override

@@ -49,11 +49,19 @@ void main() {
       expect(find.byType(HobDetailScreen), findsOneWidget);
       expect(find.text('Profil Hobíka'), findsOneWidget);
       expect(find.text('@dev-cto'), findsOneWidget);
-      expect(find.widgetWithText(TextField, 'CTO'), findsOneWidget);
-      await tester.drag(find.byType(ListView).last, const Offset(0, -600));
-      await tester.pumpAndSettle();
+      await tester.dragUntilVisible(
+        find.widgetWithText(TextField, 'Vede vývoj'),
+        find.byType(ListView).last,
+        const Offset(0, -150),
+      );
       expect(find.widgetWithText(TextField, 'Vede vývoj'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'CTO'), findsOneWidget);
       // Offline: the model cannot be read, the rest stays editable.
+      await tester.dragUntilVisible(
+        find.textContaining('SOUL.md se nepodařilo'),
+        find.byType(ListView).last,
+        const Offset(0, -150),
+      );
       expect(find.textContaining('SOUL.md se nepodařilo'), findsOneWidget);
     });
 
@@ -69,7 +77,14 @@ void main() {
       await tester.pump();
       expect(save().onPressed, isNotNull);
       final preview = tester.widget<HobAvatar>(find.byType(HobAvatar).first);
-      expect(preview.shape, 'hexagon');
+      expect(preview.face!.shape, 'hexagon');
+
+      // A generated face keeps its seed when the silhouette changes.
+      await tester.tap(find.byTooltip('Obličej: sun'));
+      await tester.pump();
+      final blob = tester.widget<HobAvatar>(find.byType(HobAvatar).first);
+      expect((blob.face!.blobSeed, blob.face!.blobKind), ('dev-cto', 'sun'));
+      expect(find.text('Barva'), findsNothing);
 
       await tester.pageBack();
       await tester.pumpAndSettle();

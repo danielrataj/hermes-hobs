@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -86,10 +88,10 @@ class _HobDetailScreenState extends State<HobDetailScreen> {
     }
   }
 
+  bool get _faceDirty => _shape != _hob.shape || _color != _hob.color;
+
   bool get _appearanceDirty =>
-      _title.text.trim() != _hob.customTitle ||
-      _shape != _hob.shape ||
-      _color != _hob.color;
+      _title.text.trim() != _hob.customTitle || _faceDirty;
 
   bool get _descriptionDirty =>
       _description.text.trim() != _hob.description.trim();
@@ -243,9 +245,12 @@ class _HobDetailScreenState extends State<HobDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final s = Strings.of(context);
-    final faceColor = HobAvatar.parseColor(_color) ?? HobAvatar.autoColor(_hob);
-    final faceShape =
-        HobAvatar.normalizeShape(_shape) ?? HobAvatar.autoShape(_hob);
+    HobFace face(String? shape) => HobAvatar.resolve(
+      name: _hob.name,
+      shape: shape,
+      color: _color,
+      custom: _hob.meta['custom'] == true || _faceDirty,
+    );
     final title = _title.text.trim();
     return PopScope(
       canPop: !_dirty && !_saving,
@@ -277,12 +282,7 @@ class _HobDetailScreenState extends State<HobDetailScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
                 Center(
-                  child: HobAvatar(
-                    hob: _hob,
-                    size: 88,
-                    shape: faceShape,
-                    color: faceColor,
-                  ),
+                  child: HobAvatar(hob: _hob, size: 88, face: face(_shape)),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -298,6 +298,48 @@ class _HobDetailScreenState extends State<HobDetailScreen> {
                   ),
                 ),
                 _SectionLabel(s.appearance),
+                _FieldLabel(s.blobFaceLabel),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final kind in [null, ...HobAvatar.blobKinds.keys])
+                      _ShapeTile(
+                        label: kind == null
+                            ? s.blobFaceLabel
+                            : '${s.blobFaceLabel}: $kind',
+                        selected:
+                            HobAvatar.isBlob(_shape) &&
+                            HobAvatar.blobKindOf(_shape) == kind,
+                        onTap: () => setState(
+                          () => _shape = HobAvatar.blobShape(
+                            HobAvatar.blobSeedOf(_shape),
+                            kind,
+                          ),
+                        ),
+                        child: HobAvatar(
+                          hob: _hob,
+                          size: 34,
+                          face: face(
+                            HobAvatar.blobShape(
+                              HobAvatar.blobSeedOf(_shape),
+                              kind,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (HobAvatar.isBlob(_shape))
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _randomizeFace,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: Text(s.randomizeFace),
+                    ),
+                  ),
+                const SizedBox(height: 16),
                 _FieldLabel(s.shapeLabel),
                 Wrap(
                   spacing: 8,
@@ -305,7 +347,7 @@ class _HobDetailScreenState extends State<HobDetailScreen> {
                   children: [
                     _ShapeTile(
                       label: s.byName,
-                      selected: HobAvatar.normalizeShape(_shape) == null,
+                      selected: _shape == null,
                       onTap: () => setState(() => _shape = null),
                       child: Text(
                         s.autoLabel,
@@ -317,44 +359,42 @@ class _HobDetailScreenState extends State<HobDetailScreen> {
                     for (final shape in HobAvatar.pickableShapes)
                       _ShapeTile(
                         label: shape,
-                        selected: HobAvatar.normalizeShape(_shape) == shape,
-                        // A blob the dashboard drew stays as it is stored.
-                        onTap: () => setState(
-                          () => _shape =
-                              HobAvatar.normalizeShape(_hob.shape) == shape
-                              ? _hob.shape
-                              : shape,
-                        ),
+                        selected: HobAvatar.pickedShape(_shape) == shape,
+                        onTap: () => setState(() => _shape = shape),
                         child: HobAvatar(
                           hob: _hob,
                           size: 30,
-                          shape: shape,
-                          color: faceColor,
+                          face: face(shape),
                         ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                _FieldLabel(s.colorLabel),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _Swatch(
-                      label: s.byName,
-                      color: null,
-                      selected: HobAvatar.parseColor(_color) == null,
-                      onTap: () => setState(() => _color = null),
-                    ),
-                    for (final c in _swatches())
+                // A blobatar brings its own colors.
+                if (!HobAvatar.isBlob(_shape)) ...[
+                  const SizedBox(height: 16),
+                  _FieldLabel(s.colorLabel),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
                       _Swatch(
-                        label: HobAvatar.hex(c),
-                        color: c,
-                        selected: HobAvatar.parseColor(_color) == c,
-                        onTap: () => setState(() => _color = HobAvatar.hex(c)),
+                        label: s.byName,
+                        color: null,
+                        selected: HobAvatar.parseColor(_color) == null,
+                        onTap: () => setState(() => _color = null),
                       ),
-                  ],
-                ),
+                      for (final c in _swatches())
+                        _Swatch(
+                          label: c,
+                          color: HobAvatar.parseColor(c),
+                          selected:
+                              HobAvatar.parseColor(_color) ==
+                              HobAvatar.parseColor(c),
+                          onTap: () => setState(() => _color = c),
+                        ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 20),
                 TextField(
                   controller: _title,
@@ -414,11 +454,22 @@ class _HobDetailScreenState extends State<HobDetailScreen> {
     );
   }
 
+  /// A new face: a fresh seed, the silhouette stays.
+  void _randomizeFace() {
+    final r = Random();
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final seed = [for (var i = 0; i < 8; i++) chars[r.nextInt(36)]].join();
+    setState(
+      () => _shape = HobAvatar.blobShape(seed, HobAvatar.blobKindOf(_shape)),
+    );
+  }
+
   /// The palette, led by the hob's own color when it is not one of them.
-  List<Color> _swatches() {
+  List<String> _swatches() {
     final own = HobAvatar.parseColor(_hob.color);
+    final known = HobAvatar.palette.map(HobAvatar.parseColor);
     return [
-      if (own != null && !HobAvatar.palette.contains(own)) own,
+      if (own != null && !known.contains(own)) _hob.color!,
       ...HobAvatar.palette,
     ];
   }

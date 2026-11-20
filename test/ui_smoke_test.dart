@@ -49,15 +49,41 @@ void main() {
     );
     expect(find.byType(HobAvatar), findsNWidgets(shapes.length));
     expect(
-      HobAvatar.shapeFor(
-        Hob(name: 'x', displayName: 'x', shape: 'blobatar:7:a'),
-      ),
-      'blob',
-    );
-    expect(
       HobAvatar.colorFor(Hob(name: 'x', displayName: 'x', color: '#F0997B')),
       const Color(0xFFF0997B),
     );
+  });
+
+  test('faces follow the dashboard formulas', () {
+    // "a" hashes to 97: shape 97 % 7, hue 97.
+    final a = HobAvatar.resolve(name: 'a');
+    expect(a.shape, 'drop');
+    expect(a.color, const HSLColor.fromAHSL(1, 97, .68, .58).toColor());
+    // The hash wraps at 32 bits, like the dashboard's `>>> 0`.
+    expect(HobAvatar.autoShape('financni-poradce'), 'hexagon');
+
+    // The default profile keeps its fixed face until the user picks one.
+    final fixed = HobAvatar.resolve(name: 'Default', shape: 'drop');
+    expect((fixed.shape, fixed.color), ('squircle', const Color(0xFF8B5CF6)));
+    expect(
+      HobAvatar.resolve(name: 'default', shape: 'drop', custom: true).shape,
+      'drop',
+    );
+
+    expect(
+      HobAvatar.parseColor('hsl(30 68% 58%)'),
+      const HSLColor.fromAHSL(1, 30, .68, .58).toColor(),
+    );
+    expect(HobAvatar.palette.length, 12);
+    expect(HobAvatar.resolve(name: 'a', color: '#101010').lightEyes, isTrue);
+    expect(HobAvatar.resolve(name: 'a', shape: 'hex').shape, 'hexagon');
+    expect(HobAvatar.resolve(name: 'a', shape: 'weird').shape, 'drop');
+
+    final blob = HobAvatar.resolve(name: 'a', shape: 'blobatar:k3x:sun');
+    expect((blob.blobSeed, blob.blobKind), ('k3x', 'sun'));
+    expect(HobAvatar.resolve(name: 'a', shape: 'blobatar').blobSeed, 'a');
+    expect(HobAvatar.blobShape('', null), 'blobatar');
+    expect(HobAvatar.blobShape('k3x', null), 'blobatar:k3x');
   });
 
   test('hob parsing edge cases used by the list UI', () {
