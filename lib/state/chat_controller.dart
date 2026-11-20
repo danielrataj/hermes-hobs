@@ -88,7 +88,15 @@ class ChatController extends ChangeNotifier {
   }
 
   void updateBot(Bot bot) {
+    final old = _bot;
     _bot = bot;
+    // An edited profile shows in the chat header right away.
+    if (old.displayName != bot.displayName ||
+        old.shape != bot.shape ||
+        old.color != bot.color ||
+        old.description != bot.description) {
+      notifyListeners();
+    }
   }
 
   Future<void> start() =>

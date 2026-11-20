@@ -16,10 +16,16 @@ class BotAvatar extends StatelessWidget {
     required this.bot,
     this.size = 36,
     this.working = false,
+    this.shape,
+    this.color,
   });
 
   final Bot bot;
   final double size;
+
+  /// Draw this shape and color instead of the bot's own (editor preview).
+  final String? shape;
+  final Color? color;
 
   /// Shows the green presence dot.
   final bool working;
@@ -34,7 +40,19 @@ class BotAvatar extends StatelessWidget {
     'drop',
   ];
 
-  static const _palette = [
+  /// Shapes the editor offers, in the dashboard's order.
+  static const pickableShapes = [
+    'circle',
+    'blob',
+    'squircle',
+    'pill',
+    'triangle',
+    'hexagon',
+    'cloud',
+    'drop',
+  ];
+
+  static const palette = [
     Color(0xFFF0997B),
     Color(0xFF85B7EB),
     Color(0xFFE24B4A),
@@ -57,26 +75,37 @@ class BotAvatar extends StatelessWidget {
     return h;
   }
 
-  static String shapeFor(Bot bot) {
-    final s = bot.shape;
-    if (s != null) {
-      if (s == 'blob' || s.startsWith('blobatar')) return 'blob';
-      if (_shapes.contains(s)) return s;
-    }
-    return _shapes[_hash(bot.name) % _shapes.length];
+  static String shapeFor(Bot bot) =>
+      normalizeShape(bot.shape) ?? autoShape(bot);
+
+  /// The shape drawn for a stored `shape` value, or null when it names none.
+  static String? normalizeShape(String? s) {
+    if (s == null) return null;
+    if (s == 'blob' || s.startsWith('blobatar')) return 'blob';
+    return _shapes.contains(s) ? s : null;
   }
 
-  static Color colorFor(Bot bot) {
-    final c = bot.color;
-    if (c != null && RegExp(r'^#?[0-9a-fA-F]{6}$').hasMatch(c)) {
-      return Color(int.parse(c.replaceFirst('#', ''), radix: 16) | 0xFF000000);
-    }
-    return _palette[_hash('${bot.name}::color') % _palette.length];
+  /// The shape a bot gets from its name when none is picked.
+  static String autoShape(Bot bot) => _shapes[_hash(bot.name) % _shapes.length];
+
+  static Color colorFor(Bot bot) => parseColor(bot.color) ?? autoColor(bot);
+
+  static Color? parseColor(String? c) {
+    if (c == null || !RegExp(r'^#?[0-9a-fA-F]{6}$').hasMatch(c)) return null;
+    return Color(int.parse(c.replaceFirst('#', ''), radix: 16) | 0xFF000000);
   }
+
+  /// The color a bot gets from its name when none is picked.
+  static Color autoColor(Bot bot) =>
+      palette[_hash('${bot.name}::color') % palette.length];
+
+  /// `#RRGGBB`, the way the dashboard stores a color.
+  static String hex(Color c) =>
+      '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 
   @override
   Widget build(BuildContext context) {
-    final color = colorFor(bot);
+    final color = this.color ?? colorFor(bot);
     final dot = size * 0.3;
     return SizedBox(
       width: size,
@@ -87,7 +116,7 @@ class BotAvatar extends StatelessWidget {
           CustomPaint(
             size: Size.square(size),
             painter: _AvatarPainter(
-              shape: shapeFor(bot),
+              shape: shape ?? shapeFor(bot),
               color: color,
               seed: _hash(bot.name),
             ),

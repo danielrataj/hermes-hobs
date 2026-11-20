@@ -484,17 +484,163 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<bool> _writeSectionName(HermesRpc rpc, Bot b, String title) async {
+  Future<bool> _writeSectionName(HermesRpc rpc, Bot b, String title) =>
+      _writeMeta(rpc, b, {...b.meta, 'sectionName': title});
+
+  /// Replaces the bot's whole `hermes-bots` block. False when the server
+  /// refused it, e.g. because someone else edited the bot meanwhile.
+  Future<bool> _writeMeta(
+    HermesRpc rpc,
+    Bot b,
+    Map<String, dynamic> meta,
+  ) async {
     final res = await rpc.request('profiles.configure', {
       'name': b.name,
-      'ui_meta': {
-        Bot.metaKey: {...b.meta, 'sectionName': title},
-      },
+      'ui_meta': {Bot.metaKey: meta},
       if (b.metaRevision != null)
         'ui_meta_expected_revisions': {Bot.metaKey: b.metaRevision},
     });
     final applied = res is Map ? res['applied'] : null;
     return applied is Map && applied['ui_meta'] == true;
+  }
+
+  // --- bot profile ---------------------------------------------------------
+
+  /// The bot as the roster knows it now (hidden ones included).
+  Bot? botNamed(String name) {
+    for (final b in [...bots, ..._hiddenBots]) {
+      if (b.name == name) return b;
+    }
+    return null;
+  }
+
+  HermesRpc get _connected {
+    final rpc = _rpc;
+    if (rpc == null) throw RpcException(-1, 'Not connected');
+    return rpc;
+  }
+
+  /// The provider, model and SOUL.md the bot's profile is set to.
+  Future<BotSetup> botSetup(Bot bot) async {
+    final res = await _connected.requestWith('profiles.describe', {
+      'name': bot.name,
+    }, timeout: const Duration(seconds: 30));
+    if (res is! Map) return const BotSetup();
+    final model = res['model'];
+    return BotSetup(
+      provider: model is Map ? model['provider']?.toString().trim() ?? '' : '',
+      model: model is Map ? model['default']?.toString().trim() ?? '' : '',
+      soul: res['soul']?.toString() ?? '',
+    );
+  }
+
+  /// Providers and their models a bot can be switched to.
+  Future<List<ModelProvider>> modelProviders() async {
+    final res = await _connected.requestWith('model.options', {
+      'include_unconfigured': true,
+      'explicit_only': false,
+    }, timeout: const Duration(seconds: 30));
+    final rows = res is Map ? res['providers'] : null;
+    return (rows as List? ?? const [])
+        .map(ModelProvider.fromJson)
+        .nonNulls
+        .toList();
+  }
+
+  /// Saves the bot's title and face. A null [shape] or [color] goes back to
+  /// the one derived from the bot's name. Throws when the server refuses.
+  Future<void> saveBotAppearance(
+    Bot bot, {
+    required String title,
+    required String? shape,
+    required String? color,
+  }) async {
+    final rpc = _connected;
+    Map<String, dynamic> edited(Bot b) {
+      final meta = {...b.meta};
+      void put(String key, String? value) =>
+          value == null ? meta.remove(key) : meta[key] = value;
+      final faceChanged = shape != b.shape || color != b.color;
+      put('title', title.trim().isEmpty ? null : title.trim());
+      put('shape', shape);
+      put('color', color);
+      // The dashboard's mark for a face the user picked by hand.
+      if (faceChanged) meta['custom'] = true;
+      return meta;
+    }
+
+    if (await _writeMeta(rpc, bot, edited(bot))) return;
+    // Someone else edited the bot meanwhile: reread it and retry once.
+    final fresh = (await _fetchAllBots()).where((x) => x.name == bot.name);
+    if (fresh.isEmpty ||
+        !await _writeMeta(rpc, fresh.first, edited(fresh.first))) {
+      throw StateError(Strings.current.botSaveRefused);
+    }
+  }
+
+  /// Saves the bot's description (`hermes profile describe`).
+  Future<void> saveBotDescription(Bot bot, String text) async {
+    _checkCli(
+      await _connected.requestWith('cli.exec', {
+        'argv': ['profile', 'describe', bot.name, '--text', text.trim()],
+      }, timeout: const Duration(seconds: 30)),
+    );
+  }
+
+  /// Switches the bot to [provider] and [model]; both empty makes it inherit
+  /// the launch profile's model again. Returns the server's question when it
+  /// wants the switch confirmed (an expensive model): ask the user and call
+  /// again with [confirmed].
+  Future<String?> saveBotModel(
+    Bot bot, {
+    required String provider,
+    required String model,
+    bool confirmed = false,
+  }) async {
+    final rpc = _connected;
+    if (provider.isEmpty && model.isEmpty) {
+      _checkCli(
+        await rpc.requestWith('cli.exec', {
+          'argv': ['--profile', bot.name, 'config', 'unset', 'model'],
+        }, timeout: const Duration(seconds: 30)),
+      );
+      return null;
+    }
+    final res = await rpc.requestWith('profiles.configure', {
+      'name': bot.name,
+      'model': model,
+      'provider': provider,
+      if (confirmed) 'confirm_expensive_model': true,
+    }, timeout: const Duration(seconds: 30));
+    if (res is Map && res['confirm_required'] == true && !confirmed) {
+      return res['confirm_message']?.toString() ?? '';
+    }
+    final applied = res is Map ? res['applied'] : null;
+    if (applied is! Map || applied['model'] != true) {
+      throw StateError(Strings.current.botSaveRefused);
+    }
+    return null;
+  }
+
+  /// Replaces the bot's SOUL.md. Throws when the server refuses.
+  Future<void> saveBotSoul(Bot bot, String soul) async {
+    final res = await _connected.requestWith('profiles.configure', {
+      'name': bot.name,
+      'soul': soul.trim(),
+    }, timeout: const Duration(seconds: 30));
+    final applied = res is Map ? res['applied'] : null;
+    if (applied is! Map || applied['soul'] != true) {
+      throw StateError(Strings.current.botSaveRefused);
+    }
+  }
+
+  static void _checkCli(Object? res) {
+    if (res is! Map) return;
+    final code = res['code'];
+    if (res['blocked'] == true || (code is num && code != 0)) {
+      final err = (res['stderr'] ?? res['error'] ?? '').toString().trim();
+      throw StateError(err.isEmpty ? Strings.current.botSaveRefused : err);
+    }
   }
 
   // --- chats ---------------------------------------------------------------
@@ -645,6 +791,8 @@ class AppState extends ChangeNotifier {
     if (e is HandshakeException) return s.errorTls(e.message);
     if (e is TimeoutException) return s.errorTimeout;
     if (e is FormatException) return s.errorBadServerUrl;
+    if (e is StateError) return e.message;
+    if (e is RpcException) return e.message;
     return e.toString();
   }
 

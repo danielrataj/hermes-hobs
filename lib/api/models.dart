@@ -140,6 +140,12 @@ class Bot {
     );
   }
 
+  /// The title the user typed for this bot; empty when the name stands in.
+  String get customTitle {
+    final t = meta['title'];
+    return t is String ? t.trim() : '';
+  }
+
   /// What the roster row shows: the Bot Chat's latest message.
   String get preview => canonical?.preview ?? '';
 
@@ -167,6 +173,48 @@ class Bot {
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
+}
+
+/// One model provider of `model.options` with the models it offers.
+class ModelProvider {
+  ModelProvider({required this.slug, this.name = '', this.models = const []});
+
+  final String slug;
+  final String name;
+  final List<String> models;
+
+  String get label => name.isEmpty || name == slug ? slug : '$name ($slug)';
+
+  static ModelProvider? fromJson(Object? j) {
+    if (j is! Map) return null;
+    final slug = j['slug']?.toString().trim() ?? '';
+    if (slug.isEmpty) return null;
+    final models = <String>[];
+    for (final m in (j['models'] as List? ?? const [])) {
+      final id = m is Map
+          ? (m['id'] ?? m['name'])?.toString() ?? ''
+          : m?.toString() ?? '';
+      if (id.isNotEmpty && !models.contains(id)) models.add(id);
+    }
+    return ModelProvider(
+      slug: slug,
+      name: j['name']?.toString().trim() ?? '',
+      models: models,
+    );
+  }
+}
+
+/// What `profiles.describe` reports beyond the roster: the model the profile
+/// runs on and its SOUL.md. An empty provider and model mean the profile
+/// inherits the model of the launch profile.
+class BotSetup {
+  const BotSetup({this.provider = '', this.model = '', this.soul = ''});
+
+  final String provider;
+  final String model;
+
+  /// The profile's SOUL.md: its persona and standing instructions.
+  final String soul;
 }
 
 enum ChatRole { user, assistant, activity, notice, error }
