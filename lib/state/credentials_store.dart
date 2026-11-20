@@ -4,11 +4,19 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Persists the server URL + username (plain prefs) and the secrets — session
-/// cookies and the remembered password — in secure storage. When the keychain
-/// is unavailable (e.g. unsigned macOS debug builds without the
-/// keychain-access-groups entitlement) secrets fall back to prefs so the app
-/// still remembers the login.
+/// cookies and the remembered password — in secure storage only. When secure
+/// storage fails, secrets live in memory for the rest of the run and are never
+/// written to disk in plain text.
 class CredentialsStore {
+  CredentialsStore({FlutterSecureStorage? secure})
+    : _secure = secure ?? _defaultSecure;
+
+  /// On macOS the legacy keychain works in the sandbox without the
+  /// keychain-access-groups entitlement and its provisioning profile.
+  static const _defaultSecure = FlutterSecureStorage(
+    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+  );
+
   static const _kServer = 'server_url';
   static const _kUser = 'username';
   static const _kCookies = 'session_cookies';
@@ -16,7 +24,10 @@ class CredentialsStore {
   static const _kAutoLogin = 'auto_login';
   static const defaultServer = 'https://hermes.devrel.cz';
 
-  final FlutterSecureStorage _secure = const FlutterSecureStorage();
+  final FlutterSecureStorage _secure;
+
+  /// Secrets that secure storage refused, kept only for this run.
+  final Map<String, String> _memory = {};
 
   Future<String> serverUrl() async {
     final p = await SharedPreferences.getInstance();
@@ -72,36 +83,52 @@ class CredentialsStore {
   Future<void> saveCookies(Map<String, String> cookies) =>
       _writeSecret(_kCookies, cookies.isEmpty ? null : jsonEncode(cookies));
 
-  // --- secure storage with prefs fallback ----------------------------------
+  // --- secure storage, memory-only fallback -------------------------------
 
   Future<String?> _readSecret(String key) async {
+    await _purgePlainCopy(key);
     try {
       final v = await _secure.read(key: key);
       if (v != null) return v;
     } catch (_) {
-      // Keychain unavailable: use the prefs copy below.
+      // Secure storage unavailable: fall through to this run's memory copy.
     }
-    // Also covers a value written to prefs while the keychain was failing.
-    final p = await SharedPreferences.getInstance();
-    return p.getString(key);
+    return _memory[key];
   }
 
   Future<void> _writeSecret(String key, String? value) async {
-    final p = await SharedPreferences.getInstance();
+    await _purgePlainCopy(key);
+    if (value == null) {
+      _memory.remove(key);
+    } else {
+      _memory[key] = value;
+    }
     try {
       if (value == null) {
         await _secure.delete(key: key);
       } else {
         await _secure.write(key: key, value: value);
       }
-      // Keychain worked: drop any stale plain-text fallback copy.
-      await p.remove(key);
+      _memory.remove(key);
     } catch (_) {
-      if (value == null) {
-        await p.remove(key);
-      } else {
-        await p.setString(key, value);
+      // Keep the memory copy only; nothing goes to disk.
+    }
+  }
+
+  /// Earlier builds wrote secrets to prefs in plain text when the keychain
+  /// failed. Move such a copy into secure storage (or this run's memory) and
+  /// delete it from disk.
+  Future<void> _purgePlainCopy(String key) async {
+    final p = await SharedPreferences.getInstance();
+    final plain = p.getString(key);
+    if (plain == null) return;
+    await p.remove(key);
+    try {
+      if (await _secure.read(key: key) == null) {
+        await _secure.write(key: key, value: plain);
       }
+    } catch (_) {
+      _memory.putIfAbsent(key, () => plain);
     }
   }
 }
